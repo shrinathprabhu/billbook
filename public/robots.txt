@@ -1,0 +1,5 @@
+# This file is authoritative only when served at a host's /robots.txt.
+User-agent: *
+Allow: /
+
+Sitemap: https://lowkey.tools/billbook/sitemap.xml

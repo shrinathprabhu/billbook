@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/billbook", "destination": "https://billbook.lowkey.tools/billbook" },
+    { "source": "/billbook/:path*", "destination": "https://billbook.lowkey.tools/billbook/:path*" }
+  ]
+}
