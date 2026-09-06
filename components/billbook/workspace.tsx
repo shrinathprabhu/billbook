@@ -156,8 +156,13 @@ export default function Workspace({
   }, [refresh]);
   useEffect(() => {
     if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
+      const standalone = ['/', '/index.html'].includes(
+        window.location.pathname,
+      );
       void navigator.serviceWorker
-        .register(`${BASE_PATH}/sw.js`, { scope: BASE_PATH })
+        .register(standalone ? '/standalone-sw.js' : `${BASE_PATH}/sw.js`, {
+          scope: standalone ? '/' : BASE_PATH,
+        })
         .then(() => navigator.serviceWorker.ready)
         .then(() => setOfflineReady(true))
         .catch(() =>

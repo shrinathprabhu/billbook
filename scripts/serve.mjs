@@ -44,11 +44,14 @@ const server = http.createServer(async (req, res) => {
         continue;
       }
       if (route.methods && !route.methods.includes(req.method)) continue;
-      if (!new RegExp(`^(?:${route.src})$`).test(pathname)) continue;
+      const pattern = new RegExp(route.src);
+      if (!pattern.test(pathname)) continue;
       Object.assign(headers, route.headers);
       if (route.continue) continue;
+      if (route.dest)
+        file = await fileAt(pathname.replace(pattern, route.dest));
+      if (route.check && !file) continue;
       status = route.status || 200;
-      if (route.dest) file = await fileAt(route.dest);
       break;
     }
     const data = file ? await readFile(file) : '';
@@ -67,5 +70,7 @@ const server = http.createServer(async (req, res) => {
 });
 const port = Number(process.env.PORT) || 4173;
 server.listen(port, '127.0.0.1', () =>
-  console.log(`Billbook static frontend: http://localhost:${port}${BASE_PATH}`),
+  console.log(
+    `Billbook static frontend: http://localhost:${port}/ and http://localhost:${port}${BASE_PATH}`,
+  ),
 );

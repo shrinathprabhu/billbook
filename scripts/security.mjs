@@ -103,22 +103,24 @@ export function vercelRoutes(headers) {
       headers: notFoundHeaders,
     },
     {
-      src: '/',
-      status: 308,
-      headers: { Location: SITE_URL, 'Cache-Control': 'public, max-age=3600' },
-    },
-    {
-      src: `${BASE_PATH}/(?:index\\.html)?`,
-      status: 308,
-      headers: { Location: SITE_URL, 'Cache-Control': 'public, max-age=3600' },
-    },
-    {
-      src: BASE_PATH,
+      // Like Credo, serve both the subdomain root and proxy prefix in place.
+      // A Location header here would also escape or loop through a stripping proxy.
+      src: `(?:/(?:index\\.html)?|${BASE_PATH}(?:/(?:index\\.html)?)?)`,
       dest: `${BASE_PATH}/index.html`,
       headers: canonicalHeaders,
     },
     {
-      src: `${BASE_PATH}/sw\\.js`,
+      src: '/standalone-sw\\.js',
+      headers: {
+        'Service-Worker-Allowed': '/',
+        'Cache-Control': 'no-store',
+        'Content-Type': 'text/javascript; charset=utf-8',
+        'X-Robots-Tag': 'noindex',
+      },
+      continue: true,
+    },
+    {
+      src: `(?:${BASE_PATH})?/sw\\.js`,
       headers: {
         'Service-Worker-Allowed': BASE_PATH,
         'Cache-Control': 'no-store',
@@ -128,7 +130,7 @@ export function vercelRoutes(headers) {
       continue: true,
     },
     {
-      src: `${BASE_PATH}/_next/static/.*`,
+      src: `(?:${BASE_PATH})?/_next/static/.*`,
       headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
       continue: true,
     },
@@ -157,7 +159,7 @@ export function vercelRoutes(headers) {
       continue: true,
     },
     {
-      src: `${BASE_PATH}/manifest\\.webmanifest`,
+      src: `(?:${BASE_PATH})?/manifest\\.webmanifest`,
       headers: {
         'Content-Type': 'application/manifest+json; charset=utf-8',
         'Cache-Control': 'public, max-age=3600',
@@ -165,7 +167,7 @@ export function vercelRoutes(headers) {
       continue: true,
     },
     {
-      src: `${BASE_PATH}/index\\.txt`,
+      src: `(?:${BASE_PATH})?/index\\.txt`,
       headers: {
         'Content-Type': 'text/x-component; charset=utf-8',
         'X-Robots-Tag': 'noindex',
@@ -174,7 +176,7 @@ export function vercelRoutes(headers) {
       continue: true,
     },
     {
-      src: `${BASE_PATH}/[^/]+\\.(?:png|svg)`,
+      src: `(?:${BASE_PATH})?/[^/]+\\.(?:png|svg)`,
       headers: { 'Cache-Control': 'public, max-age=86400' },
       continue: true,
     },
@@ -187,6 +189,13 @@ export function vercelRoutes(headers) {
       continue: true,
     },
     { handle: 'filesystem' },
+    {
+      // Resolve prefix-stripped assets only when a real public file exists.
+      // Already-prefixed URLs must never gain a second /billbook prefix.
+      src: `/(?!${BASE_PATH.slice(1)}(?:/|$))(.+)`,
+      dest: `${BASE_PATH}/$1`,
+      check: true,
+    },
     { src: '/.*', dest: '/404.html', status: 404, headers: notFoundHeaders },
   ].map((route) => (route.src ? { ...route, src: `^${route.src}$` } : route));
 }

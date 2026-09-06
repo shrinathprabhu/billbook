@@ -227,17 +227,20 @@ async function route(pathname, method = 'GET') {
     }
     assert.ok(rule.src.startsWith('^') && rule.src.endsWith('$'));
     if (rule.methods && !rule.methods.includes(method)) continue;
-    if (!new RegExp(rule.src).test(pathname)) continue;
+    const pattern = new RegExp(rule.src);
+    if (!pattern.test(pathname)) continue;
     Object.assign(response.headers, rule.headers);
     if (rule.continue) continue;
+    const destination = rule.dest ? pathname.replace(pattern, rule.dest) : null;
+    if (rule.check && !(await exists(destination))) continue;
     response.status = rule.status || 200;
-    response.file = rule.dest || null;
+    response.file = destination;
     return response;
   }
   throw new Error('No route');
 }
 
-await test('Vercel serves prefixed assets, preserves canonical HTML, and returns real error statuses', async () => {
+await test('Vercel serves both entry paths in place, preserves canonical metadata, and returns real errors', async () => {
   assert.equal(config.version, 3);
   assert.deepEqual(config.routes, vercelRoutes(headers));
   for (const path of [
@@ -256,10 +259,18 @@ await test('Vercel serves prefixed assets, preserves canonical HTML, and returns
       `<${SITE_URL}>; rel="canonical"`,
     ),
   );
-  for (const path of ['/', '/billbook/', '/billbook/index.html']) {
+  for (const path of [
+    '/',
+    '/index.html',
+    '/billbook',
+    '/billbook/',
+    '/billbook/index.html',
+  ]) {
     const result = await route(path);
-    assert.equal(result.status, 308);
-    assert.equal(result.headers.Location, SITE_URL);
+    assert.equal(result.status, 200, path);
+    assert.equal(result.file, '/billbook/index.html');
+    assert.equal(result.headers.Location, undefined, path);
+    assert.ok(result.headers.Link.includes(`<${SITE_URL}>; rel="canonical"`));
   }
   for (const path of [
     '/billbook/missing',
@@ -277,6 +288,8 @@ await test('Vercel serves prefixed assets, preserves canonical HTML, and returns
     assert.equal(result.headers['X-Robots-Tag'], 'noindex');
   }
   assert.equal((await route('/billbook', 'POST')).status, 405);
+  assert.equal((await route('/', 'POST')).status, 405);
+  assert.equal((await route('/', 'HEAD')).status, 200);
   assert.equal((await route('/billbook', 'HEAD')).status, 200);
   assert.equal(
     (await route('/billbook/sw.js')).headers['Cache-Control'],
@@ -299,7 +312,51 @@ await test('Vercel serves prefixed assets, preserves canonical HTML, and returns
   );
 });
 
-await test('parent-domain rewrites preserve the prefix without creating an upstream redirect loop', async () => {
+await test('standalone and prefix-stripped assets resolve with the same content and security headers', async () => {
+  const chunks = await readdir(`${root}/billbook/_next/static/chunks`);
+  for (const suffix of [
+    'sw.js',
+    'manifest.webmanifest',
+    'og.png',
+    'favicon.svg',
+    'icon-192.png',
+    'robots.txt',
+    'sitemap.xml',
+    'llms.txt',
+    'llms-full.txt',
+    'index.md',
+    'index.txt',
+    `_next/static/chunks/${chunks[0]}`,
+  ]) {
+    const scoped = await route(`${BASE_PATH}/${suffix}`);
+    const stripped = await route(`/${suffix}`);
+    assert.equal(stripped.status, 200, suffix);
+    assert.equal(stripped.headers.Location, undefined, suffix);
+    assert.deepEqual(stripped.headers, scoped.headers, suffix);
+    assert.deepEqual(
+      await readFile(path.join(root, stripped.file)),
+      await readFile(path.join(root, scoped.file)),
+      suffix,
+    );
+  }
+  for (const url of [
+    '/_next/static/missing.js',
+    '/billbook/_next/static/missing.js',
+    '/billbook/billbook',
+    '/missing.png',
+  ])
+    assert.equal((await route(url)).status, 404, url);
+  assert.equal(
+    (await route('/standalone-sw.js')).headers['Service-Worker-Allowed'],
+    '/',
+  );
+  assert.equal(
+    (await route('/sw.js')).headers['Service-Worker-Allowed'],
+    BASE_PATH,
+  );
+});
+
+await test('parent-domain rewrites work with preserved or stripped prefixes without redirect loops', async () => {
   const parent = JSON.parse(
     await readFile('deploy/lowkey.vercel.example.json', 'utf8'),
   );
@@ -317,92 +374,139 @@ await test('parent-domain rewrites preserve the prefix without creating an upstr
     200,
   );
   assert.equal((await route('/billbook/sw.js')).status, 200);
+  const stripping = JSON.parse(
+    await readFile('deploy/lowkey.stripping.vercel.example.json', 'utf8'),
+  );
+  assert.equal(
+    stripping.rewrites[0].destination,
+    'https://billbook.lowkey.tools/',
+  );
+  assert.equal(
+    stripping.rewrites[1].destination,
+    'https://billbook.lowkey.tools/:path*',
+  );
+  for (const upstream of ['/', '/billbook', '/sw.js', '/billbook/sw.js']) {
+    const result = await route(upstream);
+    assert.equal(result.status, 200, upstream);
+    assert.equal(result.headers.Location, undefined, upstream);
+  }
   assert.ok(
     !config.routes.some((r) => r.has?.some((h) => h.type === 'host')),
     'Host redirects can leak through the proxy',
   );
 });
 
-await test('offline service worker caches only known public app URLs and leaves other Lowkey apps alone', async () => {
-  const handlers = {},
-    deleted = [],
-    matches = [];
-  let precached;
-  const source = await readFile(`${root}/billbook/sw.js`, 'utf8');
-  const context = {
-    URL,
-    Set,
-    self: {
-      location: { origin: 'https://lowkey.tools' },
-      clients: { claim: async () => {} },
-      addEventListener: (type, fn) => {
-        handlers[type] = fn;
-      },
-    },
-    caches: {
-      open: async () => ({
-        addAll: async (urls) => {
-          precached = urls;
+for (const standalone of [false, true]) {
+  await test(`${standalone ? 'Standalone' : 'Proxy'} service worker caches its entry page and leaves unrelated URLs alone`, async () => {
+    const handlers = {},
+      deleted = [],
+      matches = [];
+    let precached;
+    const source = await readFile(
+      `${root}${standalone ? '/standalone-sw.js' : '/billbook/sw.js'}`,
+      'utf8',
+    );
+    const context = {
+      URL,
+      Set,
+      self: {
+        location: { origin: 'https://lowkey.tools' },
+        clients: { claim: async () => {} },
+        addEventListener: (type, fn) => {
+          handlers[type] = fn;
         },
-        match: async (request) => {
-          matches.push(request);
-          return 'cached-response';
-        },
-      }),
-      keys: async () => [
-        'other-app-v1',
-        'billbook-local-old',
-        'billbook-app-v1-old',
-      ],
-      delete: async (key) => {
-        deleted.push(key);
       },
-    },
-    fetch: async () => 'network-response',
-  };
-  vm.runInNewContext(source, context);
-  /** @type {Promise<unknown>} */
-  let promise = Promise.resolve();
-  handlers.install({
-    waitUntil: (p) => {
-      promise = p;
-    },
-  });
-  await promise;
-  assert.ok(precached.length > 20);
-  for (const url of precached) {
-    assert.ok(url === BASE_PATH || url.startsWith(`${BASE_PATH}/`), url);
-    assert.ok(!url.includes('sw.js'));
-    assert.equal((await route(url)).status, 200, url);
-  }
-  handlers.activate({
-    waitUntil: (p) => {
-      promise = p;
-    },
-  });
-  await promise;
-  assert.deepEqual(deleted, ['billbook-app-v1-old']);
-  for (const url of [
-    'https://lowkey.tools/',
-    'https://lowkey.tools/superbrain',
-    'https://lowkey.tools/billbook-other',
-    'https://lowkey.tools/billbook/unknown',
-    'https://example.com/billbook',
-  ])
-    handlers.fetch({
-      request: { url, method: 'GET' },
-      respondWith: () => assert.fail(`Intercepted unrelated URL: ${url}`),
+      caches: {
+        open: async () => ({
+          addAll: async (urls) => {
+            precached = urls;
+          },
+          match: async (request) => {
+            matches.push(request);
+            return 'cached-response';
+          },
+        }),
+        keys: async () => [
+          'other-app-v1',
+          'billbook-local-old',
+          'billbook-app-v1-old',
+          'billbook-standalone-v1-old',
+        ],
+        delete: async (key) => {
+          deleted.push(key);
+        },
+      },
+      fetch: async () => 'network-response',
+    };
+    vm.runInNewContext(source, context);
+    /** @type {Promise<unknown>} */
+    let promise = Promise.resolve();
+    handlers.install({
+      waitUntil: (p) => {
+        promise = p;
+      },
     });
-  handlers.fetch({
-    request: { url: 'https://lowkey.tools/billbook', method: 'POST' },
-    respondWith: () => assert.fail('Intercepted write'),
+    await promise;
+    assert.ok(precached.length > 20);
+    for (const url of precached) {
+      assert.ok(
+        (standalone && url === '/') ||
+          url === BASE_PATH ||
+          url.startsWith(`${BASE_PATH}/`),
+        url,
+      );
+      assert.ok(!url.includes('sw.js'));
+      assert.equal((await route(url)).status, 200, url);
+    }
+    handlers.activate({
+      waitUntil: (p) => {
+        promise = p;
+      },
+    });
+    await promise;
+    assert.deepEqual(deleted, [
+      standalone ? 'billbook-standalone-v1-old' : 'billbook-app-v1-old',
+    ]);
+    for (const url of [
+      ...(!standalone
+        ? ['https://lowkey.tools/', 'https://lowkey.tools/index.html']
+        : []),
+      'https://lowkey.tools/superbrain',
+      'https://lowkey.tools/billbook-other',
+      'https://lowkey.tools/billbook/unknown',
+      'https://example.com/billbook',
+    ])
+      handlers.fetch({
+        request: { url, method: 'GET' },
+        respondWith: () => assert.fail(`Intercepted unrelated URL: ${url}`),
+      });
+    handlers.fetch({
+      request: { url: 'https://lowkey.tools/billbook', method: 'POST' },
+      respondWith: () => assert.fail('Intercepted write'),
+    });
+    handlers.fetch({
+      request: { url: 'https://lowkey.tools/billbook?ref=test', method: 'GET' },
+      respondWith: (p) => {
+        promise = p;
+      },
+    });
+    assert.equal(await promise, 'cached-response');
+    assert.equal(matches.at(-1), BASE_PATH);
+    if (standalone) {
+      assert.ok(precached.includes('/'));
+      for (const pathname of ['/', '/index.html']) {
+        handlers.fetch({
+          request: {
+            url: `https://lowkey.tools${pathname}?ref=test`,
+            method: 'GET',
+          },
+          respondWith: (p) => {
+            promise = p;
+          },
+        });
+        assert.equal(await promise, 'cached-response');
+        assert.equal(matches.at(-1), '/');
+      }
+    }
   });
-  handlers.fetch({
-    request: { url: 'https://lowkey.tools/billbook?ref=test', method: 'GET' },
-    respondWith: (p) => {
-      promise = p;
-    },
-  });
-  assert.equal(await promise, 'cached-response');
-  assert.equal(matches.at(-1), BASE_PATH);
-});
+}

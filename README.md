@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Open the development server at `/billbook`.
+Open the development server at `/` or `/billbook`; the root is internally rewritten to the app.
 
 For the complete offline app:
 
@@ -18,9 +18,9 @@ npm run build
 npm start
 ```
 
-Open http://localhost:4173/billbook once while connected and wait for **Ready to work offline** in the sidebar. The production service worker caches every application module and bundled font, including the Excel and export modules. The development server does not register a service worker.
+Open http://localhost:4173/ or http://localhost:4173/billbook once while connected and wait for **Ready to work offline** in the sidebar. The production service worker caches every application module and bundled font, including the Excel and export modules. The development server does not register a service worker.
 
-`npm start` is a tiny local static file server, not an application backend. The generated Vercel Build Output API files include production routing and security headers. Other static hosts must implement the rules in `dist/routing.json`; serving `dist/client/` alone is not enough to reproduce those headers and redirects. Do not deploy the intermediate `dist/server/` build artifacts. Service workers require localhost or HTTPS; opening the HTML directly with `file://` is not supported.
+`npm start` is a tiny local static file server, not an application backend. The generated Vercel Build Output API files include production routing and security headers. Other static hosts must implement the rules in `dist/routing.json`; serving `dist/client/` alone is not enough to reproduce those headers, rewrites and error responses. Do not deploy the intermediate `dist/server/` build artifacts. Service workers require localhost or HTTPS; opening the HTML directly with `file://` is not supported.
 
 ## What’s included
 
@@ -62,7 +62,7 @@ The maintained SheetJS parser comes from the [official SheetJS distribution](htt
 
 ## Public URL, discovery and deployment
 
-The canonical URL is https://lowkey.tools/billbook, proxied to https://billbook.lowkey.tools/billbook. All app URLs, assets, install metadata and offline caching use the `/billbook` prefix.
+Billbook works directly at https://billbook.lowkey.tools/ and behind https://lowkey.tools/billbook, with no browser redirect between them. Like Credo, assets use the `/billbook` prefix and the main-site URL remains the SEO canonical. The origin serves its root with an internal rewrite and accepts both path-preserving and prefix-stripping proxies. Offline reload works at both entry paths; the proxy worker stays scoped to Billbook and the standalone root uses a separate worker. Install metadata opens `/billbook` on the current host.
 
 The public guide and FAQs are pre-rendered as HTML. Canonicals, Open Graph/Twitter cards, creator metadata and JSON-LD are generated from public product facts, alongside robots.txt, sitemap.xml, llms.txt, llms-full.txt and a Markdown guide. Private bills never become crawlable pages. The interface credits [Shrinath Prabhu](https://shrinath.me), creator of [Owleye Analytics](https://owleye.dev), and links back to [Lowkey Tools](https://lowkey.tools).
 

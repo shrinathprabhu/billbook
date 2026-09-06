@@ -81,26 +81,32 @@ const urls = [
     .filter((f) => f !== htmlPath)
     .map((f) => '/' + path.relative(root, f).split(path.sep).join('/')),
 ];
-const source = `const BASE=${JSON.stringify(BASE_PATH)};
-const PREFIX='billbook-app-v1-';
+function workerSource(standalone = false) {
+  return `const BASE=${JSON.stringify(BASE_PATH)};
+const STANDALONE=${JSON.stringify(standalone)};
+const PREFIX=${JSON.stringify(standalone ? 'billbook-standalone-v1-' : 'billbook-app-v1-')};
 const CACHE=PREFIX+${JSON.stringify(version)};
-const ASSETS=${JSON.stringify(urls)};
+const ASSETS=${JSON.stringify(standalone ? ['/', ...urls] : urls)};
 const KNOWN=new Set(ASSETS);
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith(PREFIX)&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
  const request=event.request,url=new URL(request.url);
- // Scope uses /billbook to include its slashless canonical URL. Enforce a path boundary here.
- if(request.method!=='GET'||url.origin!==self.location.origin||(url.pathname!==BASE&&!url.pathname.startsWith(BASE+'/')))return;
- const home=url.pathname===BASE||url.pathname===BASE+'/';
+ // A root worker is used only when the app is opened at the subdomain root.
+ // The proxy worker never intercepts the parent homepage or another tool.
+ if(request.method!=='GET'||url.origin!==self.location.origin)return;
+ const rootHome=STANDALONE&&(url.pathname==='/'||url.pathname==='/index.html');
+ const home=rootHome||url.pathname===BASE||url.pathname===BASE+'/'||url.pathname===BASE+'/index.html';
  if(!home&&!KNOWN.has(url.pathname))return;
  event.respondWith(caches.open(CACHE).then(async cache=>{
-  const match=await cache.match(home?BASE:request,{ignoreSearch:true});
+  const match=await cache.match(home?(rootHome?'/':BASE):request,{ignoreSearch:true});
   if(match)return match;
   return fetch(request);
  }));
 });\n`;
-await writeFile(path.join(appRoot, 'sw.js'), source);
+}
+await writeFile(path.join(appRoot, 'sw.js'), workerSource());
+await writeFile(path.join(root, 'standalone-sw.js'), workerSource(true));
 await writeFile(
   'dist/security-headers.json',
   JSON.stringify(headers, null, 2) + '\n',
