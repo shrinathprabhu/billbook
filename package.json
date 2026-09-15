@@ -7,18 +7,21 @@
   },
   "scripts": {
     "dev": "vinext dev",
-    "build": "node scripts/generate-discovery.mjs && vinext build && node scripts/build-offline.mjs && node scripts/build-pages.mjs",
-    "build:pages": "npm run build",
-    "preview:pages": "wrangler pages dev --cwd deploy/cloudflare-pages --port 8788",
-    "deploy:pages": "npm run build:pages && wrangler pages deploy --cwd deploy/cloudflare-pages",
-    "start": "npm run preview:pages",
+    "build": "node scripts/generate-discovery.mjs && vinext build && node scripts/build-offline.mjs && node scripts/build-workers.mjs",
+    "start": "npm run preview:workers",
     "lint": "oxlint app components/billbook lib scripts tests",
     "format": "oxfmt",
-    "preview": "npm run preview:pages",
+    "preview": "npm run preview:workers",
     "test": "node --import tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "test:discovery": "node --test tests/discovery.test.mjs",
-    "test:pages": "node --test tests/pages.test.mjs"
+    "test:build": "node --test tests/css-build.test.mjs",
+    "build:workers": "npm run build",
+    "preview:workers": "wrangler dev --config deploy/cloudflare-workers/wrangler.jsonc --ip 127.0.0.1 --port 8788",
+    "deploy:workers": "wrangler deploy --config deploy/cloudflare-workers/wrangler.jsonc",
+    "deploy": "npm run build && npm run deploy:workers",
+    "test:workers": "node --test tests/workers.test.mjs",
+    "test:workers:runtime": "node --test tests/workers-runtime.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

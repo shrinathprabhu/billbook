@@ -70,7 +70,7 @@ export const notFoundHeaders = {
   'X-Robots-Tag': 'noindex',
   'Cache-Control': 'no-store',
 };
-// Asset policy shared by the static packager and Cloudflare Pages headers.
+// Asset policy shared by the static packager and Workers Static Assets headers.
 export function assetHeaders(pathname) {
   if (pathname === '/' || pathname === '/index.html') return canonicalHeaders;
   if (pathname === '/404' || pathname === '/404.html') return notFoundHeaders;

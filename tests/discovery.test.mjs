@@ -24,7 +24,7 @@ import {
   publicMarkdown,
 } from '../lib/site.mjs';
 
-const root = path.resolve('dist/pages');
+const root = path.resolve('dist/workers');
 const html = await readFile(`${root}/index.html`, 'utf8');
 const nodes = elements(html);
 const attr = (node, name) => node.attrs.find((a) => a.name === name)?.value;

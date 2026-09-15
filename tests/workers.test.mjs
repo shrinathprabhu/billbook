@@ -7,7 +7,7 @@ import ts from 'typescript';
 import { elements, inlineScripts } from '../scripts/security.mjs';
 import { SITE_URL } from '../lib/site.mjs';
 
-const root = 'dist/pages';
+const root = 'dist/workers';
 const html = await readFile(`${root}/index.html`, 'utf8');
 const original = await readFile('dist/client/index.html', 'utf8');
 const headerFile = await readFile(`${root}/_headers`, 'utf8');
@@ -31,14 +31,21 @@ const blocks = headerFile.split(/\n\s*\n/).map((block) => {
 const headersAt = (path) =>
   blocks.find((block) => block.path === path)?.headers;
 
-await test('Pages configuration publishes only the static package and respects header limits', async () => {
+await test('Workers configuration publishes only the static package and respects header limits', async () => {
   const parsed = ts.parseConfigFileTextToJson(
-    'deploy/cloudflare-pages/wrangler.jsonc',
-    await readFile('deploy/cloudflare-pages/wrangler.jsonc', 'utf8'),
+    'deploy/cloudflare-workers/wrangler.jsonc',
+    await readFile('deploy/cloudflare-workers/wrangler.jsonc', 'utf8'),
   );
   assert.equal(parsed.error, undefined);
   const config = parsed.config;
-  assert.equal(config.pages_build_output_dir, '../../dist/pages');
+  assert.equal(config.assets.directory, '../../dist/workers');
+  assert.equal(config.assets.not_found_handling, '404-page');
+  assert.equal(config.assets.html_handling, 'auto-trailing-slash');
+  assert.deepEqual(config.routes, [
+    { pattern: 'billbook.lowkey.tools', custom_domain: true },
+  ]);
+  assert.equal(config.build, undefined);
+  assert.equal(config.assets.run_worker_first, undefined);
   assert.equal(config.main, undefined);
   assert.ok(blocks.length <= 100);
   assert.ok(headerFile.split('\n').every((line) => line.length <= 2000));
@@ -55,7 +62,7 @@ await test('Pages configuration publishes only the static package and respects h
   assert.ok(!files.includes('_redirects'));
 });
 
-await test('Pages preserves the complete CSP using early HTML policy and HTTP frame protection', async () => {
+await test('Workers preserves the complete CSP using early HTML policy and HTTP frame protection', async () => {
   const expectedPolicy = shared['Content-Security-Policy']
     .split('; ')
     .filter((directive) => !directive.startsWith('frame-ancestors '))
@@ -92,7 +99,7 @@ await test('Pages preserves the complete CSP using early HTML policy and HTTP fr
   assert.equal(globalHeaders['Cache-Control'], undefined);
 });
 
-await test('Pages retains canonicals, public metadata and distinct cache policies', async () => {
+await test('Workers retains canonicals, public metadata and distinct cache policies', async () => {
   assert.equal(
     attr(
       elements(html).find((node) => attr(node, 'rel') === 'canonical'),
@@ -133,7 +140,7 @@ await test('Pages retains canonicals, public metadata and distinct cache policie
   }
 });
 
-await test('Pages worker versions its own document and never caches deployment control files', async () => {
+await test('Browser service worker versions the deployed document and never caches deployment control files', async () => {
   const worker = await readFile(`${root}/sw.js`, 'utf8');
   assert.equal(worker, await readFile(`${root}/standalone-sw.js`, 'utf8'));
   assert.notEqual(worker, await readFile('dist/client/sw.js', 'utf8'));

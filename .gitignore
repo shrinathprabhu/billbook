@@ -33,6 +33,6 @@ yarn-error.log*
 next-env.d.ts
 /dist/
 /.wrangler/
-/deploy/cloudflare-pages/.wrangler/
+/deploy/cloudflare-workers/.wrangler/
 /outputs/
 /work/

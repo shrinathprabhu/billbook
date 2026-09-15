@@ -13,22 +13,22 @@ npm run dev
 
 Open the development server at `/`.
 
-For the complete offline app with Cloudflare Pages:
+For the complete offline app with Cloudflare Workers Static Assets:
 
 ```sh
-npm run build:pages
-npm run preview:pages
+npm run build:workers
+npm run preview:workers
 ```
 
 Open http://localhost:8788/ once while connected and wait for **Ready to work offline** in the sidebar. The production service worker caches every application module and bundled font, including the Excel and export modules. The development server does not register a service worker.
 
-`npm run build:pages` produces `dist/pages` with Cloudflare headers and its offline worker. Publish it with `npm run deploy:pages` after connecting your Cloudflare account; see the [Pages settings](docs/DEPLOYMENT.md#cloudflare-pages). Do not deploy the intermediate `dist/server/` build artifacts. Service workers require localhost or HTTPS; opening the HTML directly with `file://` is not supported.
+`npm run build:workers` produces `dist/workers` with Cloudflare headers and its offline worker. Publish it with `npm run deploy:workers` after connecting your Cloudflare account; see the [Workers settings](docs/DEPLOYMENT.md#workers-build-settings). Only the static `dist/workers` directory is uploaded; the app has no server entry point. Service workers require localhost or HTTPS; opening the HTML directly with `file://` is not supported.
 
 ## Install Billbook
 
 Open [Billbook](https://billbook.lowkey.tools/) and choose **Install app** in the top bar. Supporting browsers show their native prompt. Other browsers receive instructions for Chrome/Edge, iPhone/iPad (Share → Add to Home Screen) and Safari on Mac (File → Add to Dock). An **App installed** state is shown when the browser reports installation or the app runs in standalone mode. The button remains available when a native prompt is unavailable.
 
-Wait for **Ready to work offline** before disconnecting. The development server does not register the service worker; use the Cloudflare Pages production build or its local Wrangler preview to check offline support. Installation does not transfer or synchronize documents between browsers or devices.
+Wait for **Ready to work offline** before disconnecting. The development server does not register the service worker; use the Cloudflare Workers Static Assets production build or its local Wrangler preview to check offline support. Installation does not transfer or synchronize documents between browsers or devices.
 
 ## What’s included
 
@@ -60,9 +60,10 @@ PDFs preserve the visual template as high-resolution page images. Copyable text 
 ```sh
 npm run typecheck
 npm test
+npm run test:build
 npm run build
 npm run test:discovery
-npm run test:pages
+npm run test:workers
 ```
 
 Tests cover tax/discount arithmetic, rental and identifier validation, XLSX and JSON parsing, grouped imports, sequential IDs under concurrent writes, atomic rejection of duplicate numbers, deletion, and backup restoration. Payment tests also decode the actual QR image, check printed tax breakdowns, and verify older workspace records receive safe defaults.
@@ -75,11 +76,11 @@ Billbook lives at **https://billbook.lowkey.tools/**. The app, assets, manifest 
 
 The public guide and FAQs are pre-rendered as HTML. Canonicals, Open Graph/Twitter cards, creator metadata and JSON-LD are generated from public product facts, alongside robots.txt, sitemap.xml, llms.txt, llms-full.txt and a Markdown guide. Private bills never become crawlable pages. The footer credits [Shrinath Prabhu](https://shrinath.me), links to [his X profile](https://x.com/shrinath_prabhu), [Owleye Analytics](https://owleye.dev), and [Lowkey Tools](https://lowkey.tools). One contextual recommendation points to [Credo](https://lowkey.tools/credo) for encrypted sharing.
 
-See [deployment instructions](docs/DEPLOYMENT.md) for Cloudflare Pages settings, security headers and offline upgrades. `npm run build` (also available as `npm run build:pages`) produces the complete `dist/pages` package. The checked-in `deploy/cloudflare-pages/wrangler.jsonc` configures its preview and deployment. `npm start` and `npm run preview` both use the local Pages preview at port 8788. The generated OG asset and its prompt are documented in [OG-IMAGE.md](docs/OG-IMAGE.md).
+See [deployment instructions](docs/DEPLOYMENT.md) for Cloudflare Workers Static Assets settings, security headers and offline upgrades. `npm run build` (also available as `npm run build:workers`) produces the complete `dist/workers` package. The checked-in `deploy/cloudflare-workers/wrangler.jsonc` configures its preview and deployment. `npm start` and `npm run preview` both use the local Workers preview at port 8788. The generated OG asset and its prompt are documented in [OG-IMAGE.md](docs/OG-IMAGE.md).
 
-`npm run test:discovery` checks the built HTML without JavaScript, structured data, canonical URLs, public assets, icon dimensions, CSP hashes and service-worker cache boundaries in the Pages output.
+`npm run test:discovery` checks the built HTML without JavaScript, structured data, canonical URLs, public assets, icon dimensions, CSP hashes and service-worker cache boundaries in the Workers output.
 
-After `npm run build:pages`, run `npm run test:pages` to verify the Pages package and `npm run preview:pages` to serve it through Wrangler locally. `npm run deploy:pages` builds and uploads to the Cloudflare Pages project configured in `deploy/cloudflare-pages/wrangler.jsonc` after you authenticate with Cloudflare.
+After `npm run build:workers`, run `npm run test:workers` to verify the Workers package and `npm run preview:workers` to serve it through Wrangler locally. `npm run deploy:workers` uploads the completed assets to the configured Worker after you authenticate with Cloudflare. `npm run deploy` builds first and then uploads. In Workers Builds, set the build command to `npm run build` and deploy command to `npm run deploy:workers`. Run `npm run test:workers:runtime` against the local preview to check actual Workers responses.
 
 ## Cash documents and payment fields
 
