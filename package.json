@@ -7,14 +7,18 @@
   },
   "scripts": {
     "dev": "vinext dev",
-    "build": "node scripts/generate-discovery.mjs && vinext build && node scripts/build-offline.mjs",
-    "start": "node scripts/serve.mjs",
+    "build": "node scripts/generate-discovery.mjs && vinext build && node scripts/build-offline.mjs && node scripts/build-pages.mjs",
+    "build:pages": "npm run build",
+    "preview:pages": "wrangler pages dev --cwd deploy/cloudflare-pages --port 8788",
+    "deploy:pages": "npm run build:pages && wrangler pages deploy --cwd deploy/cloudflare-pages",
+    "start": "npm run preview:pages",
     "lint": "oxlint app components/billbook lib scripts tests",
     "format": "oxfmt",
-    "preview": "node scripts/serve.mjs",
+    "preview": "npm run preview:pages",
     "test": "node --import tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "test:discovery": "node --test tests/discovery.test.mjs"
+    "test:discovery": "node --test tests/discovery.test.mjs",
+    "test:pages": "node --test tests/pages.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

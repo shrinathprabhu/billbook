@@ -2,7 +2,7 @@
 
 > Create invoices, GST/VAT bills, rent receipts and society maintenance bills. Customize templates, import Excel or JSON, and export PDF or PNG. No sign-up.
 
-Canonical page: https://lowkey.tools/billbook
+Canonical page: https://billbook.lowkey.tools/
 
 Billbook is a free browser app by [Lowkey Tools](https://lowkey.tools). Made by [Shrinath Prabhu](https://shrinath.me), creator of [Owleye Analytics](https://owleye.dev). No account is required.
 
@@ -44,6 +44,10 @@ Change colors, fonts, layout, logo, letterhead and signature. Add and reorder te
 
 ## Frequently asked questions
 
+### Can I install Billbook as an app?
+
+Yes. Select Install app in the top bar. Billbook opens the browser’s installation prompt when available, or shows instructions for Chrome, Edge and Safari. Wait for “Ready to work offline” before disconnecting. Installation does not sync documents between browsers or devices.
+
 ### What is Billbook?
 
 Billbook is a free, frontend-only invoice and receipt generator by Lowkey Tools. It creates invoices, shop receipts, rent receipts, society maintenance bills, cash vouchers and cash memos in your browser, with no account required.
@@ -84,10 +88,20 @@ Yes. Billbook allocates incremental document numbers locally, lets you configure
 
 Billbook is free to use and does not require sign-up. The app runs in the browser without an application backend. Install it from a supporting browser for a standalone window, or keep using the website.
 
+## A little more Lowkey
+
+- [Credo](https://lowkey.tools/credo): Share a password or sensitive file through an encrypted, expiring link.
+
+[Explore more tools](https://lowkey.tools) or [follow Shrinath on X](https://x.com/shrinath_prabhu).
+
+## Source code
+
+[Source on GitHub](https://github.com/shrinathprabhu/billbook)
+
 ## Public discovery files
 
-- [Application](https://lowkey.tools/billbook)
-- [LLM index](https://lowkey.tools/billbook/llms.txt)
-- [Sitemap](https://lowkey.tools/billbook/sitemap.xml)
+- [Application](https://billbook.lowkey.tools/)
+- [LLM index](https://billbook.lowkey.tools/llms.txt)
+- [Sitemap](https://billbook.lowkey.tools/sitemap.xml)
 
 This document describes the public application. Private invoices, uploaded files and local workspace data are not published here.

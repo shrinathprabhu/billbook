@@ -2,4 +2,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://lowkey.tools/billbook/sitemap.xml
+Sitemap: https://billbook.lowkey.tools/sitemap.xml

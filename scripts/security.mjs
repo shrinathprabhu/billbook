@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { parse } from 'parse5';
-import { BASE_PATH, SITE_URL } from '../lib/site.mjs';
+import { SITE_URL } from '../lib/site.mjs';
 
 export function elements(html) {
   const nodes = [];
@@ -61,7 +61,7 @@ export function securityHeaders(htmlPages) {
   };
 }
 export const canonicalHeaders = {
-  Link: `<${SITE_URL}>; rel="canonical", <${SITE_URL}/index.md>; rel="alternate"; type="text/markdown", <${SITE_URL}/llms.txt>; rel="describedby"; type="text/plain"`,
+  Link: `<${SITE_URL}>; rel="canonical", <${SITE_URL}index.md>; rel="alternate"; type="text/markdown", <${SITE_URL}llms.txt>; rel="describedby"; type="text/plain"`,
   'Cache-Control': 'public, max-age=0, must-revalidate',
   'X-Robots-Tag':
     'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
@@ -70,132 +70,45 @@ export const notFoundHeaders = {
   'X-Robots-Tag': 'noindex',
   'Cache-Control': 'no-store',
 };
-export const denyPattern =
-  '/(?:.*/)?(?:\\.[^/]+|[^/]+\\.(?:map|env|sql|bak|log|php|pem|key))(?:/.*)?';
-
-export function vercelRoutes(headers) {
-  return [
-    { src: '/.*', headers, continue: true },
-    {
-      src: '/.*',
-      methods: [
-        'POST',
-        'PUT',
-        'PATCH',
-        'DELETE',
-        'OPTIONS',
-        'TRACE',
-        'CONNECT',
-      ],
-      status: 405,
-      headers: { Allow: 'GET, HEAD', ...notFoundHeaders },
-    },
-    {
-      src: denyPattern,
-      status: 404,
-      dest: '/404.html',
-      headers: notFoundHeaders,
-    },
-    {
-      src: '/404\\.html',
-      status: 404,
-      dest: '/404.html',
-      headers: notFoundHeaders,
-    },
-    {
-      // Like Credo, serve both the subdomain root and proxy prefix in place.
-      // A Location header here would also escape or loop through a stripping proxy.
-      src: `(?:/(?:index\\.html)?|${BASE_PATH}(?:/(?:index\\.html)?)?)`,
-      dest: `${BASE_PATH}/index.html`,
-      headers: canonicalHeaders,
-    },
-    {
-      src: '/standalone-sw\\.js',
-      headers: {
-        'Service-Worker-Allowed': '/',
-        'Cache-Control': 'no-store',
-        'Content-Type': 'text/javascript; charset=utf-8',
-        'X-Robots-Tag': 'noindex',
-      },
-      continue: true,
-    },
-    {
-      src: `(?:${BASE_PATH})?/sw\\.js`,
-      headers: {
-        'Service-Worker-Allowed': BASE_PATH,
-        'Cache-Control': 'no-store',
-        'Content-Type': 'text/javascript; charset=utf-8',
-        'X-Robots-Tag': 'noindex',
-      },
-      continue: true,
-    },
-    {
-      src: `(?:${BASE_PATH})?/_next/static/.*`,
-      headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
-      continue: true,
-    },
-    {
-      src: '/(?:billbook/)?(?:robots\\.txt|llms(?:-full)?\\.txt)',
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600',
-      },
-      continue: true,
-    },
-    {
-      src: '/(?:billbook/)?index\\.md',
-      headers: {
-        'Content-Type': 'text/markdown; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600',
-      },
-      continue: true,
-    },
-    {
-      src: '/(?:billbook/)?sitemap\\.xml',
-      headers: {
-        'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600',
-      },
-      continue: true,
-    },
-    {
-      src: `(?:${BASE_PATH})?/manifest\\.webmanifest`,
-      headers: {
-        'Content-Type': 'application/manifest+json; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600',
-      },
-      continue: true,
-    },
-    {
-      src: `(?:${BASE_PATH})?/index\\.txt`,
-      headers: {
-        'Content-Type': 'text/x-component; charset=utf-8',
-        'X-Robots-Tag': 'noindex',
-        'Cache-Control': 'public, max-age=0, must-revalidate',
-      },
-      continue: true,
-    },
-    {
-      src: `(?:${BASE_PATH})?/[^/]+\\.(?:png|svg)`,
-      headers: { 'Cache-Control': 'public, max-age=86400' },
-      continue: true,
-    },
-    {
-      src: '/.*\\.(?:rsc|html)',
-      headers: {
-        'X-Robots-Tag': 'noindex',
-        'Cache-Control': 'public, max-age=0, must-revalidate',
-      },
-      continue: true,
-    },
-    { handle: 'filesystem' },
-    {
-      // Resolve prefix-stripped assets only when a real public file exists.
-      // Already-prefixed URLs must never gain a second /billbook prefix.
-      src: `/(?!${BASE_PATH.slice(1)}(?:/|$))(.+)`,
-      dest: `${BASE_PATH}/$1`,
-      check: true,
-    },
-    { src: '/.*', dest: '/404.html', status: 404, headers: notFoundHeaders },
-  ].map((route) => (route.src ? { ...route, src: `^${route.src}$` } : route));
+// Asset policy shared by the static packager and Cloudflare Pages headers.
+export function assetHeaders(pathname) {
+  if (pathname === '/' || pathname === '/index.html') return canonicalHeaders;
+  if (pathname === '/404' || pathname === '/404.html') return notFoundHeaders;
+  // The old root worker URL remains so installed copies can update.
+  if (pathname === '/sw.js' || pathname === '/standalone-sw.js')
+    return {
+      'Service-Worker-Allowed': '/',
+      'Cache-Control': 'no-store',
+      'Content-Type': 'text/javascript; charset=utf-8',
+      'X-Robots-Tag': 'noindex',
+    };
+  if (pathname.startsWith('/_next/static/'))
+    return { 'Cache-Control': 'public, max-age=31536000, immutable' };
+  const contentType = {
+    '/robots.txt': 'text/plain',
+    '/llms.txt': 'text/plain',
+    '/llms-full.txt': 'text/plain',
+    '/index.md': 'text/markdown',
+    '/sitemap.xml': 'application/xml',
+    '/manifest.webmanifest': 'application/manifest+json',
+  }[pathname];
+  if (contentType)
+    return {
+      'Content-Type': `${contentType}; charset=utf-8`,
+      'Cache-Control': 'public, max-age=3600',
+    };
+  if (pathname === '/index.txt')
+    return {
+      'Content-Type': 'text/x-component; charset=utf-8',
+      'X-Robots-Tag': 'noindex',
+      'Cache-Control': 'public, max-age=0, must-revalidate',
+    };
+  if (/^\/[^/]+\.(?:png|svg)$/.test(pathname))
+    return { 'Cache-Control': 'public, max-age=86400' };
+  if (/\.(?:rsc|html)$/.test(pathname))
+    return {
+      'X-Robots-Tag': 'noindex',
+      'Cache-Control': 'public, max-age=0, must-revalidate',
+    };
+  return {};
 }

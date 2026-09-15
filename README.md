@@ -1,5 +1,7 @@
 # Billbook
 
+[Source on GitHub](https://github.com/shrinathprabhu/billbook)
+
 A frontend-only, offline bill generator. Built with React, TypeScript, and a static Vinext/Vite export. The production app is plain HTML, CSS, JavaScript, and bundled assets. It has no application backend, authentication service, cloud database, or external runtime API.
 
 ## Run
@@ -9,18 +11,24 @@ npm install
 npm run dev
 ```
 
-Open the development server at `/` or `/billbook`; the root is internally rewritten to the app.
+Open the development server at `/`.
 
-For the complete offline app:
+For the complete offline app with Cloudflare Pages:
 
 ```sh
-npm run build
-npm start
+npm run build:pages
+npm run preview:pages
 ```
 
-Open http://localhost:4173/ or http://localhost:4173/billbook once while connected and wait for **Ready to work offline** in the sidebar. The production service worker caches every application module and bundled font, including the Excel and export modules. The development server does not register a service worker.
+Open http://localhost:8788/ once while connected and wait for **Ready to work offline** in the sidebar. The production service worker caches every application module and bundled font, including the Excel and export modules. The development server does not register a service worker.
 
-`npm start` is a tiny local static file server, not an application backend. The generated Vercel Build Output API files include production routing and security headers. Other static hosts must implement the rules in `dist/routing.json`; serving `dist/client/` alone is not enough to reproduce those headers, rewrites and error responses. Do not deploy the intermediate `dist/server/` build artifacts. Service workers require localhost or HTTPS; opening the HTML directly with `file://` is not supported.
+`npm run build:pages` produces `dist/pages` with Cloudflare headers and its offline worker. Publish it with `npm run deploy:pages` after connecting your Cloudflare account; see the [Pages settings](docs/DEPLOYMENT.md#cloudflare-pages). Do not deploy the intermediate `dist/server/` build artifacts. Service workers require localhost or HTTPS; opening the HTML directly with `file://` is not supported.
+
+## Install Billbook
+
+Open [Billbook](https://billbook.lowkey.tools/) and choose **Install app** in the top bar. Supporting browsers show their native prompt. Other browsers receive instructions for Chrome/Edge, iPhone/iPad (Share → Add to Home Screen) and Safari on Mac (File → Add to Dock). An **App installed** state is shown when the browser reports installation or the app runs in standalone mode. The button remains available when a native prompt is unavailable.
+
+Wait for **Ready to work offline** before disconnecting. The development server does not register the service worker; use the Cloudflare Pages production build or its local Wrangler preview to check offline support. Installation does not transfer or synchronize documents between browsers or devices.
 
 ## What’s included
 
@@ -54,6 +62,7 @@ npm run typecheck
 npm test
 npm run build
 npm run test:discovery
+npm run test:pages
 ```
 
 Tests cover tax/discount arithmetic, rental and identifier validation, XLSX and JSON parsing, grouped imports, sequential IDs under concurrent writes, atomic rejection of duplicate numbers, deletion, and backup restoration. Payment tests also decode the actual QR image, check printed tax breakdowns, and verify older workspace records receive safe defaults.
@@ -62,13 +71,15 @@ The maintained SheetJS parser comes from the [official SheetJS distribution](htt
 
 ## Public URL, discovery and deployment
 
-Billbook works directly at https://billbook.lowkey.tools/ and behind https://lowkey.tools/billbook, with no browser redirect between them. Like Credo, assets use the `/billbook` prefix and the main-site URL remains the SEO canonical. The origin serves its root with an internal rewrite and accepts both path-preserving and prefix-stripping proxies. Offline reload works at both entry paths; the proxy worker stays scoped to Billbook and the standalone root uses a separate worker. Install metadata opens `/billbook` on the current host.
+Billbook lives at **https://billbook.lowkey.tools/**. The app, assets, manifest and offline worker are served from the domain root. There is no base path, parent-site proxy, or cross-domain redirect. Canonicals, the sitemap, Open Graph and JSON-LD all identify this subdomain.
 
-The public guide and FAQs are pre-rendered as HTML. Canonicals, Open Graph/Twitter cards, creator metadata and JSON-LD are generated from public product facts, alongside robots.txt, sitemap.xml, llms.txt, llms-full.txt and a Markdown guide. Private bills never become crawlable pages. The interface credits [Shrinath Prabhu](https://shrinath.me), creator of [Owleye Analytics](https://owleye.dev), and links back to [Lowkey Tools](https://lowkey.tools).
+The public guide and FAQs are pre-rendered as HTML. Canonicals, Open Graph/Twitter cards, creator metadata and JSON-LD are generated from public product facts, alongside robots.txt, sitemap.xml, llms.txt, llms-full.txt and a Markdown guide. Private bills never become crawlable pages. The footer credits [Shrinath Prabhu](https://shrinath.me), links to [his X profile](https://x.com/shrinath_prabhu), [Owleye Analytics](https://owleye.dev), and [Lowkey Tools](https://lowkey.tools). One contextual recommendation points to [Credo](https://lowkey.tools/credo) for encrypted sharing.
 
-See [deployment instructions](docs/DEPLOYMENT.md) for Vercel security rules, proxy configuration and the required parent-site robots/sitemap/LLM additions. The parent site is a separate project; these additions must be merged there. The generated OG asset and its prompt are documented in [OG-IMAGE.md](docs/OG-IMAGE.md).
+See [deployment instructions](docs/DEPLOYMENT.md) for Cloudflare Pages settings, security headers and offline upgrades. `npm run build` (also available as `npm run build:pages`) produces the complete `dist/pages` package. The checked-in `deploy/cloudflare-pages/wrangler.jsonc` configures its preview and deployment. `npm start` and `npm run preview` both use the local Pages preview at port 8788. The generated OG asset and its prompt are documented in [OG-IMAGE.md](docs/OG-IMAGE.md).
 
-`npm run test:discovery` checks the built HTML without JavaScript, structured data, canonical URLs, public assets, icon dimensions, CSP hashes, proxy routing and service-worker cache boundaries.
+`npm run test:discovery` checks the built HTML without JavaScript, structured data, canonical URLs, public assets, icon dimensions, CSP hashes and service-worker cache boundaries in the Pages output.
+
+After `npm run build:pages`, run `npm run test:pages` to verify the Pages package and `npm run preview:pages` to serve it through Wrangler locally. `npm run deploy:pages` builds and uploads to the Cloudflare Pages project configured in `deploy/cloudflare-pages/wrangler.jsonc` after you authenticate with Cloudflare.
 
 ## Cash documents and payment fields
 

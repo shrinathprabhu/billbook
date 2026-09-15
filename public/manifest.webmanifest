@@ -1,12 +1,12 @@
 {
-  "id": "/billbook",
+  "id": "/",
   "name": "Billbook — Offline invoice & receipt generator",
   "short_name": "Billbook",
   "description": "Create invoices, GST/VAT bills, rent receipts and society maintenance bills. Customize templates, import Excel or JSON, and export PDF or PNG. No sign-up.",
   "lang": "en",
   "dir": "ltr",
-  "start_url": "/billbook",
-  "scope": "/billbook",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f8faf9",
   "theme_color": "#227852",
@@ -17,19 +17,19 @@
   ],
   "icons": [
     {
-      "src": "/billbook/icon-192.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/billbook/icon-512.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/billbook/icon-maskable-512.png",
+      "src": "/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

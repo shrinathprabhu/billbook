@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { z } from 'zod';
-import { BASE_PATH } from '@/lib/site.mjs';
 import SiteFooter from '@/components/billbook/site-footer';
+import InstallButton from '@/components/billbook/install-button';
 import {
   Receipt,
   FileText,
@@ -156,13 +156,8 @@ export default function Workspace({
   }, [refresh]);
   useEffect(() => {
     if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
-      const standalone = ['/', '/index.html'].includes(
-        window.location.pathname,
-      );
       void navigator.serviceWorker
-        .register(standalone ? '/standalone-sw.js' : `${BASE_PATH}/sw.js`, {
-          scope: standalone ? '/' : BASE_PATH,
-        })
+        .register('/sw.js', { scope: '/' })
         .then(() => navigator.serviceWorker.ready)
         .then(() => setOfflineReady(true))
         .catch(() =>
@@ -480,6 +475,7 @@ export default function Workspace({
             <strong>{editing ? 'Document editor' : pageNames[page]}</strong>
           </div>
           <div className="topbar-right">
+            <InstallButton offlineReady={offlineReady} />
             <span className="device-state">
               <span className="status-dot" />
               {loading ? 'Opening workspace…' : 'Stored on this device'}
@@ -592,7 +588,7 @@ export default function Workspace({
             </footer>
           </main>
         )}
-        <SiteFooter />
+        <SiteFooter showRelated={page === 'documents' && !editing} />
       </div>
       <Dialog open={create} onOpenChange={setCreate}>
         <DialogContent className="choose-dialog">

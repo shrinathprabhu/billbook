@@ -2,20 +2,24 @@
 
 > Free, frontend-only invoice and receipt generator by Lowkey Tools. No account required. Documents are stored locally in the user's browser.
 
-Canonical application: https://lowkey.tools/billbook
+Canonical application: https://billbook.lowkey.tools/
 
 Made by [Shrinath Prabhu](https://shrinath.me), creator of [Owleye Analytics](https://owleye.dev). [Back to Lowkey Tools](https://lowkey.tools).
 
 Create invoices, shop and food receipts, rent receipts, society maintenance bills, cash vouchers and cash memos. Configure GST, VAT or custom tax manually, customize templates, import Excel/CSV/JSON, and export PDF, PNG or text. Offline use requires an initial online visit and completion of the service worker setup.
 
+## Source code
+
+- [Billbook on GitHub](https://github.com/shrinathprabhu/billbook): Source repository.
+
 ## Product documentation
 
-- [Billbook application](https://lowkey.tools/billbook): Public interface, feature descriptions, instructions and FAQs.
-- [Markdown guide](https://lowkey.tools/billbook/index.md): The public feature guide and FAQ in plain Markdown, including import limits, tax configuration and local storage behavior.
-- [Full text guide](https://lowkey.tools/billbook/llms-full.txt): Expanded public product reference.
+- [Billbook application](https://billbook.lowkey.tools/): Public interface, feature descriptions, instructions and FAQs.
+- [Markdown guide](https://billbook.lowkey.tools/index.md): The public feature guide and FAQ in plain Markdown, including import limits, tax configuration and local storage behavior.
+- [Full text guide](https://billbook.lowkey.tools/llms-full.txt): Expanded public product reference.
 
 ## Discovery
 
-- [Sitemap](https://lowkey.tools/billbook/sitemap.xml): Canonical public page.
+- [Sitemap](https://billbook.lowkey.tools/sitemap.xml): Canonical public page.
 
 Private bills, customer details, uploaded files and local workspaces are not public documentation and are not included in these files.

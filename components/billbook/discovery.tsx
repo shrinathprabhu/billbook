@@ -1,4 +1,4 @@
-import { BASE_PATH, faqs, steps, documentUseCases } from '@/lib/site.mjs';
+import { faqs, steps, documentUseCases } from '@/lib/site.mjs';
 
 export default function DiscoveryContent() {
   return (
@@ -53,8 +53,8 @@ export default function DiscoveryContent() {
       </section>
       <div className="discovery-links">
         <a href="#main-content">Back to the bill generator ↑</a>
-        <a href={`${BASE_PATH}/index.md`}>Read the text guide</a>
-        <a href={`${BASE_PATH}/llms.txt`}>LLM index</a>
+        <a href={`/index.md`}>Read the text guide</a>
+        <a href={`/llms.txt`}>LLM index</a>
       </div>
     </section>
   );

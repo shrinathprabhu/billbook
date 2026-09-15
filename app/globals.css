@@ -315,6 +315,19 @@ button:hover {
   align-items: center;
   gap: 21px;
 }
+.install-button {
+  min-height: 40px;
+  padding-inline: 12px;
+  color: #227852;
+  background: #f3f8f4;
+  border-color: #d8e6db;
+  font-size: 14px;
+}
+.install-dialog .install-note {
+  color: #5c6b61;
+  font-size: 14px;
+  line-height: 1.6;
+}
 .device-state {
   font-size: 12px;
   color: #78867b;
@@ -905,8 +918,11 @@ h2 {
     display: inline-flex !important;
   }
   .topbar {
-    height: 62px;
-    padding: 0 20px;
+    min-height: 62px;
+    height: auto;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 10px 20px;
   }
   .breadcrumb {
     gap: 9px;
@@ -917,6 +933,7 @@ h2 {
   }
   .topbar-right {
     gap: 10px;
+    margin-left: auto;
   }
   .main-content {
     padding: 25px 20px;
@@ -3120,42 +3137,162 @@ h2 {
 .creator-footer {
   max-width: 1640px;
   margin: 0 auto;
-  padding: 16px 39px 28px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 14px 24px;
+  padding: 24px 39px 30px;
   font-size: 12px;
   color: #52675a;
 }
 .creator-footer a {
   color: #245c3d;
-  font-weight: 550;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.creator-footer .back-to-lowkey {
+.creator-footer a:focus-visible {
+  outline: 2px solid #227852;
+  outline-offset: 5px;
+  border-radius: 4px;
+}
+.lowkey-next {
+  padding: 28px;
+  margin-bottom: 24px;
+  border: 1px solid #dfe7de;
+  border-radius: 16px;
+  background: #f4f6ef;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 32px;
+}
+.lowkey-next-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  gap: 20px;
+}
+.lowkey-next .eyebrow {
+  font-size: 10px;
+  margin-bottom: 8px;
+  color: #52675a;
+}
+.lowkey-next h2 {
+  font-size: clamp(20px, 2.2vw, 27px);
+  font-weight: 600;
+  color: #243f31;
+  letter-spacing: -0.6px;
+}
+.creator-footer .more-lowkey {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
+  font-weight: 550;
+}
+.lowkey-next-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+.creator-footer .lowkey-tool {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  border: 1px solid #e0e6dc;
+  border-radius: 10px;
+  background: #fffefa;
   text-decoration: none;
 }
-.creator-footer p {
+.lowkey-tool:hover {
+  border-color: #839f88;
+  background: #fff;
+}
+.lowkey-tool-name {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 650;
+  color: #536c57;
+}
+.lowkey-tool h3 {
+  margin: 12px 0 8px;
+  font-size: 16px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: #243f31;
+}
+.lowkey-tool p {
+  margin: 0 0 20px;
+  color: #52675a;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.lowkey-tool-action {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  font-weight: 550;
+  line-height: 1.5;
+}
+.creator-colophon {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px 32px;
   flex-wrap: wrap;
-  gap: 0 4px;
+}
+.creator-colophon p {
+  margin: 0;
   line-height: 1.8;
 }
-.creator-footer p a {
-  display: inline-flex;
+.creator-colophon a {
+  font-weight: 550;
+}
+.creator-colophon svg {
+  display: inline;
+  vertical-align: middle;
+}
+.maker-credit {
+  text-align: right;
+}
+.maker-credit .source-link {
+  display: flex;
   align-items: center;
-  gap: 2px;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 14px;
+}
+.maker-credit .maker-follow {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+}
+@media (max-width: 1080px) {
+  .lowkey-next {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .lowkey-next-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .lowkey-tool p {
+    margin-bottom: 14px;
+  }
 }
 @media (max-width: 720px) {
   .creator-footer {
-    padding: 16px 20px 28px;
+    padding: 20px 20px 28px;
+  }
+  .lowkey-next {
+    padding: 20px;
+  }
+  .maker-credit {
+    text-align: left;
+  }
+  .maker-credit .source-link {
+    justify-content: flex-start;
+  }
+  .maker-break {
+    display: none;
   }
 }
 

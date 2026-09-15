@@ -1,13 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './fonts.css';
 import './globals.css';
-import {
-  BASE_PATH,
-  SITE_URL,
-  TITLE,
-  DESCRIPTION,
-  OG_IMAGE,
-} from '@/lib/site.mjs';
+import { SITE_URL, TITLE, DESCRIPTION, OG_IMAGE } from '@/lib/site.mjs';
 export const viewport: Viewport = { themeColor: '#227852' };
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -18,15 +12,15 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   alternates: {
     canonical: SITE_URL,
-    types: { 'text/markdown': `${SITE_URL}/index.md` },
+    types: { 'text/markdown': `${SITE_URL}index.md` },
   },
-  manifest: `${BASE_PATH}/manifest.webmanifest`,
+  manifest: `/manifest.webmanifest`,
   icons: {
     icon: [
-      { url: `${BASE_PATH}/favicon.svg`, type: 'image/svg+xml' },
-      { url: `${BASE_PATH}/icon-192.png`, sizes: '192x192', type: 'image/png' },
+      { url: `/favicon.svg`, type: 'image/svg+xml' },
+      { url: `/icon-192.png`, sizes: '192x192', type: 'image/png' },
     ],
-    apple: { url: `${BASE_PATH}/apple-touch-icon.png`, sizes: '180x180' },
+    apple: { url: `/apple-touch-icon.png`, sizes: '180x180' },
   },
   robots: {
     index: true,
@@ -61,7 +55,7 @@ export default function RootLayout({
       <head>
         <link
           rel="describedby"
-          href={`${SITE_URL}/llms.txt`}
+          href={`${SITE_URL}llms.txt`}
           type="text/plain"
         />
       </head>

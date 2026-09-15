@@ -1,74 +1,85 @@
-# Billbook discovery and Vercel deployment
+# Deploy Billbook to Cloudflare Pages
 
-Billbook is fully usable at **https://billbook.lowkey.tools/** and through the reverse proxy at **https://lowkey.tools/billbook**. Both return the application directly with HTTP 200. Like Credo, the main-site URL remains the SEO canonical in metadata; that does not redirect the browser. This repository builds static files only; the production app has no application server or API.
+Billbook is hosted at **https://billbook.lowkey.tools/**. This is the application URL and the SEO canonical. The app, JavaScript, fonts, icons, manifest, crawler files and service worker all live at the domain root. No base path or reverse proxy is required.
 
-## Deploy this project
+Use the canonical URL with a trailing slash consistently in metadata, HTTP canonical headers, structured data, the sitemap and public documentation. `trailingSlash: true` in `next.config.ts` preserves that form in Vinext's rendered canonical and Open Graph metadata. At a domain root, the empty path and `/` identify the same URL. Do not add a redirect between these equivalent forms. Root-relative asset paths and the manifest/service-worker scope still require `/`.
 
-1. Import this repository into Vercel and attach `billbook.lowkey.tools` to the project. Use the checked-in `vercel.json` (`npm ci`, then `npm run build`, framework preset Other). Remove any dashboard build/output-directory overrides left over from a different framework.
-2. The build generates `.vercel/output/config.json` and `.vercel/output/static/` using Vercel Build Output API v3. Deploy those outputs through the normal Git integration, or run `vercel build` followed by `vercel deploy --prebuilt`. Do not deploy `dist/server/` or run `vinext start` in production.
-3. Merge the two path-preserving rewrites from `deploy/lowkey.vercel.example.json` (or the alternative prefix-stripping pair from `deploy/lowkey.stripping.vercel.example.json`) into the **lowkey.tools parent project**, ahead of any catch-all route. Preserve the existing tools and other parent configuration.
-4. Apply the small root discovery-file additions below in the parent project. This app cannot own another project's root files.
+## Cloudflare Pages
 
-The recommended proxy preserves the path:
+Source repository: [shrinathprabhu/billbook](https://github.com/shrinathprabhu/billbook). Cloudflare Pages hosts the installable PWA.
 
-| Browser URL | Upstream request |
+Create a **Pages** project and connect this repository. Use these Git build settings:
+
+| Setting | Value |
 | --- | --- |
-| `https://lowkey.tools/billbook` | `https://billbook.lowkey.tools/billbook` |
-| `https://lowkey.tools/billbook/sw.js` | `https://billbook.lowkey.tools/billbook/sw.js` |
-| `https://lowkey.tools/billbook/_next/static/…` | `https://billbook.lowkey.tools/billbook/_next/static/…` |
-| `https://lowkey.tools/billbook/llms.txt` | `https://billbook.lowkey.tools/billbook/llms.txt` |
+| Framework preset | None |
+| Root directory | Repository root (leave blank) |
+| Build command | `npm run build:pages` |
+| Build output directory | `dist/pages` |
+| Build environment variable | `NODE_VERSION=22` |
+| Production branch | The branch you want to publish |
+| Custom domain | `billbook.lowkey.tools` |
 
-A proxy that strips the prefix also works, matching [Credo's deployment pattern](https://github.com/shrinathprabhu/credo). Its `/billbook` request goes to the upstream `/`, and `/billbook/:path*` goes to upstream `/:path*`. The origin internally serves `/` from `/billbook/index.html` and resolves unprefixed asset requests to existing files inside `/billbook`. Already-prefixed requests keep their path. Both configurations use rewrites and preserve the visitor's address bar.
+Pages installs dependencies from the npm lockfile. The CLI scripts run Wrangler from `deploy/cloudflare-pages`, where `wrangler.jsonc` supplies the project name (`billbook`), output directory and compatibility date. Change its name value if your Pages project uses a different name. This separate directory avoids Vinext's automatic Workers detection while using the standard config filename required by Wrangler Pages. Git deployments use the dashboard settings above; the nested Wrangler file is loaded by the CLI scripts. See Cloudflare's [build configuration](https://developers.cloudflare.com/pages/configuration/build-configuration/), [build image](https://developers.cloudflare.com/pages/configuration/build-image/) and [Wrangler configuration](https://developers.cloudflare.com/pages/functions/wrangler-configuration/) documentation.
 
-There is **no redirect from `/` or any app entry URL**, and no host-based redirect. `/`, `/index.html`, `/billbook`, `/billbook/` and `/billbook/index.html` all serve the application with HTTP 200. This avoids redirect loops with prefix-stripping proxies. The HTML canonical, Open Graph URL, sitemap and HTTP `Link` canonical still consistently identify `https://lowkey.tools/billbook`, just as Credo identifies its main-site path. Canonical metadata is a search-engine hint, not navigation.
+In the Pages project's **Custom domains** section, add `billbook.lowkey.tools` and follow its DNS instructions. The canonical stays `https://billbook.lowkey.tools/`, including on preview deployments; `CF_PAGES_URL` does not change it. The app remains frontend-only: no Pages Functions, Worker backend, D1, R2 or runtime secrets are needed. Keep Cloudflare features that inject or rewrite JavaScript disabled (such as automatic Web Analytics injection, Zaraz or Rocket Loader); the CSP only permits the app's own scripts.
 
-Unknown paths return actual HTTP 404 responses instead of the application's HTML. Asset aliases only resolve when a real public file exists. There are no public per-invoice URLs: the document library, editor, templates and imports are local application state. Do not put a host-specific `noindex` header on upstream HTML; it could pass through to the main-site page.
+For a local preview or a manual upload:
 
-Production routes live in `scripts/security.mjs` and are generated into `.vercel/output/config.json`, because this is a static Vinext export using Vercel Build Output API. `vercel.json` selects the build; it does not contain a second, competing set of routing rules. `next.config.ts` defines the shared base path. `vite.config.ts` internally rewrites development entry URLs before Vite's base middleware can redirect them.
-
-## Additions in the lowkey.tools parent project
-
-The public root files checked on 2026-09-05 already allow all crawlers, including named AI/search bots. Keep those existing rules. Append this sitemap declaration to the parent's **root `/robots.txt`**:
-
-```text
-Sitemap: https://lowkey.tools/billbook/sitemap.xml
+```sh
+npm ci
+npm run build:pages
+npm run test:discovery
+npm run test:pages
+npm run preview:pages
 ```
 
-`/billbook/robots.txt` is provided for inspection but is not authoritative for `lowkey.tools`: crawlers read `/robots.txt` at the host root. The upstream project separately serves its own root `/robots.txt`. If the parent later adds crawler-specific blocks, ensure the matching bot groups also allow `/billbook` and its CSS, JavaScript, fonts, images and public text files. A wildcard group does not override a more specific bot group.
+The preview uses Wrangler at `http://localhost:8788`. When ready to publish, authenticate with `npx wrangler login`, then run `npm run deploy:pages`. For an existing CI login, Cloudflare's `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are deploy-time credentials, not frontend environment variables. These instructions prepare deployment; building and previewing do not publish anything.
 
-Add this entry to the parent's `/sitemap.xml` without replacing existing entries:
+### Install the deployed PWA
 
-```xml
-<url><loc>https://lowkey.tools/billbook</loc></url>
-```
+Once the Pages site is live over HTTPS, open `https://billbook.lowkey.tools/`, wait for **Ready to work offline**, then use **Install app** in the top bar. Chromium browsers may offer a native prompt; Safari uses its browser menu and the app shows the relevant instructions. A `pages.dev` preview has its own browser storage, so install from the custom domain for your regular workspace. Deploying the static files and installing the PWA are separate steps; no app store or server backend is required.
 
-Add these entries under Tools in the parent's `/llms.txt`:
+### Pages output and policy
 
-```markdown
-- [Billbook](https://lowkey.tools/billbook): Free offline invoices, receipts, rent receipts, maintenance bills, cash vouchers and cash memos. Local browser storage, manual GST/VAT, customizable templates, Excel/JSON bulk imports and PDF/PNG/text exports.
-- [Billbook documentation](https://lowkey.tools/billbook/llms.txt): Public feature guide, instructions, import limits and frequently asked questions.
-```
+`npm run build` generates the complete Cloudflare Pages package; `npm run build:pages` is an alias for the same build. `scripts/build-pages.mjs` copies the completed static app into `dist/pages`, generates `_headers` from the asset policies in `scripts/security.mjs`, adds an early CSP meta element to both HTML documents and regenerates the offline workers for the final HTML. `_headers` is deployment configuration and is never included in the offline cache. Do not deploy the intermediate `dist/client` or `dist/server` directories. `npm start`, `npm run preview` and `npm run preview:pages` all run the Pages preview at port 8788.
 
-Add a normal HTML link to Billbook in the parent's tools directory. Search engines should be able to reach it by following links, without needing the sitemap alone.
+Cloudflare [limits each `_headers` line to 2,000 characters](https://developers.cloudflare.com/pages/configuration/headers/). Billbook's hash-based script policy exceeds that limit, so its full document policy is placed immediately after the HTML charset declaration, before any resources or scripts. `frame-ancestors` is delivered in the HTTP header because [browsers ignore it in CSP meta elements](https://www.w3.org/TR/CSP/#meta-element). HSTS, frame protection, `nosniff`, referrer, cross-origin and permissions policies remain HTTP headers. This preserves the script hashes without introducing `unsafe-inline` or `unsafe-eval` for scripts or requiring a server function.
+
+Pages serves the top-level `404.html` for unknown paths, preventing its default SPA fallback. Its [static serving behavior](https://developers.cloudflare.com/pages/configuration/serving-pages/) redirects `/index.html` to `/` and can expose `/404` as a clean HTML URL; the error document is marked `noindex`. No custom redirects are needed for root hosting. Pages handles unsupported methods and caching for unknown URLs. The static package excludes source maps and private files. Per-asset cache policies and service-worker scope are supplied through `_headers`.
+
+Local validation with Wrangler 4.129.0 accepted all 21 header rules, returned 200 for all 53 offline assets, 308 for `/index.html`, 404 for unknown pages and 405 for POST. A direct request to the reserved `/_headers` path triggers a Wrangler-only asset-loader error (502); it is not a public asset and is excluded from the offline cache. Live Pages responses still need verification after deployment.
+
+## Search, answer engines and public files
+
+Every build generates these root files:
+
+- `/robots.txt` allows crawling and declares `https://billbook.lowkey.tools/sitemap.xml`.
+- `/sitemap.xml` lists the subdomain homepage.
+- `/llms.txt`, `/llms-full.txt` and `/index.md` describe public features, steps and FAQs.
+- `/manifest.webmanifest` uses `/` for its ID, start URL and scope, with root-relative app icons.
+- `/og.png` is the sharing card, with the credit `by @shrinath_prabhu`. Open Graph and Twitter metadata reference it on this subdomain.
+
+The initial HTML includes the guide, use cases and FAQs without requiring JavaScript. The JSON-LD graph covers WebApplication, WebPage/FAQPage, Person, Organization and BreadcrumbList. Structured data and visible answers share the same facts in `lib/site.mjs`. The maker’s Person entity includes his X profile. Footer links credit Shrinath Prabhu, Owleye Analytics and Lowkey Tools, with one contextual recommendation for Credo.
+
+Private bills, customer details, uploads and workspace data never become public HTML, sitemap entries or LLM documentation. These files support discovery; indexing and citations remain decisions made by search and answer engines.
 
 ## Security and caching
 
-`scripts/security.mjs` defines the actual generated production rules. They apply equally to ordinary browsers and crawlers; there is no cloaking or bot-only HTML.
+- Build-specific CSP SHA-256 hashes cover parsed inline scripts, hydration payloads and JSON-LD. Scripts have no `unsafe-inline` or `unsafe-eval` allowance.
+- Inline styles support custom document design. Same-origin, `data:` and `blob:` images, fonts and export resources support local uploads and PDF/PNG generation. No analytics or external script dependency is enabled by the creator links.
+- Frames, objects, form submissions and script attributes are blocked. Unused device permissions are disabled; clipboard write and native sharing remain available.
+- Responses include HSTS, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, COOP and CORP.
+- Hashed static assets use a one-year immutable cache. HTML revalidates. Service workers are `no-store`; fixed-name images cache for one day, and discovery files/manifest for one hour. The error document is `noindex`; its explicit `/404` and `/404.html` header rules use `no-store`. Pages controls caching for unknown URLs.
+- Pages handles unsupported methods and missing files with its native static responses as described above. Source maps and the internal client-entry manifest are excluded; the packager rejects private files and server or deployment control files in its input.
 
-- Each production build computes SHA-256 CSP hashes from the final, parsed HTML, including framework hydration scripts and public JSON-LD. Scripts have no `unsafe-inline` or `unsafe-eval` allowance. Do not copy hashes from an older build.
-- Inline **styles** remain allowed because document design, React styles and the UI components require them. Local `data:` and `blob:` fonts/images/connections support uploads and image/PDF export. No external script, font or analytics host is enabled. The Owleye link is a creator credit.
-- Frames, objects, form submission and script attributes are blocked. The app is not intended for iframe embedding. Camera, microphone, geolocation, payment and other unused permissions are disabled; clipboard write and native sharing remain available to the app.
-- Responses set HSTS for one year, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, COOP and CORP. HSTS intentionally does not enroll unrelated subdomains or request preload.
-- Content-hashed assets receive a one-year immutable cache policy. HTML revalidates; both service-worker scripts are `no-store`. Public text/manifest files use a one-hour cache; fixed-name images use one day. Errors are `no-store` and `noindex`.
-- Known non-read HTTP methods return 405. Dotfiles and common source/secret/backup/scan paths return 404. Source maps and the internal client-entry manifest are excluded from the public output; runtime static manifests remain available to the app. These are static routing defenses, not an application authorization system.
+## Offline updates and existing data
 
-The parent proxy must preserve these response headers. Check that it does not add a second incompatible CSP, a blanket `X-Robots-Tag: noindex`, or a stale HTML cache policy. Multiple CSP headers are enforced together, so an unrelated parent policy can break the app even if this policy is correct. Leave crawlers able to access the public page and assets without authentication or browser challenges. No firewall, rate-limit or bot-challenge settings are changed by this repository.
+New visits register `/sw.js` with `/` scope. The worker caches only known public app files and the homepage. It does not turn arbitrary unknown URLs into app pages or intercept requests to other origins.
 
-## Offline and origin behavior
+A compatibility copy at `/standalone-sw.js` lets previously installed root workers fetch an update. It serves the same current worker; new visits use `/sw.js`. Activation cleans only Billbook’s own application-cache namespaces, including those used by previous versions. Updates wait for old app clients to close before activation, so editing is not interrupted by a forced reload. Neither the build nor the worker deletes IndexedDB documents, templates, settings or fonts.
 
-Application assets and install metadata retain the `/billbook` prefix, so they work on either host without rewriting HTML. The installed app opens `/billbook` on the current origin. When opened through `/billbook`, the service worker uses `/billbook` scope and caches only known app URLs; it never intercepts the main-site `/`, other tools, similarly named paths or unknown URLs. When opened directly at `/` or `/index.html`, a separate `/standalone-sw.js` worker uses root scope and additionally caches the standalone entry page, so a reload at the subdomain root works offline too. The stripped `/sw.js` alias always retains the proxy worker and its `/billbook` scope permission. Each worker cleans only its own cache namespace (`billbook-app-v1-` or `billbook-standalone-v1-`). It never caches document exports or uploaded customer data as public application assets.
-
-Browser storage is isolated by origin, not URL path. `billbook.lowkey.tools` and `lowkey.tools` have separate workspaces; use JSON backup/restore to move existing documents between them. Other apps on `lowkey.tools` share that origin's browser security boundary. Clearing that origin's site data can remove the local workspace. User data is never inserted into public HTML, the sitemap, JSON-LD or the LLM files.
+Changing paths on the same origin preserves the workspace. Browser origins have separate storage: data previously created on the parent domain must be moved with the app’s JSON backup/restore. Do not clear site data to resolve a stale app cache or a previously cached redirect.
 
 ## Verify
 
@@ -76,37 +87,22 @@ Browser storage is isolated by origin, not URL path. `billbook.lowkey.tools` and
 npm run typecheck
 npm run lint
 npm test
-npm run build
+npm run build:pages
 npm run test:discovery
-npm start
+npm run test:pages
+npm run preview:pages
 ```
 
-Open both `http://localhost:4173/` and `http://localhost:4173/billbook`. Neither should navigate to a different URL. The local static server uses the generated production routing and response headers. It is a preview tool, not an application backend.
-
-After both projects are deployed, verify both the origin and the canonical proxy:
+Open `http://localhost:8788/`. After deploying, check the live root response and public files:
 
 ```sh
 curl -I https://billbook.lowkey.tools/
-curl -I https://lowkey.tools/billbook
-curl -I https://billbook.lowkey.tools/billbook
 curl -I https://billbook.lowkey.tools/sw.js
-curl -I https://billbook.lowkey.tools/standalone-sw.js
-curl -I https://lowkey.tools/billbook/sw.js
-curl -I https://lowkey.tools/billbook/og.png
-curl -I https://lowkey.tools/billbook/not-a-page
-curl https://lowkey.tools/robots.txt
-curl https://lowkey.tools/billbook/sitemap.xml
-curl https://lowkey.tools/billbook/llms.txt
+curl -I https://billbook.lowkey.tools/og.png
+curl -I https://billbook.lowkey.tools/not-a-page
+curl https://billbook.lowkey.tools/robots.txt
+curl https://billbook.lowkey.tools/sitemap.xml
+curl https://billbook.lowkey.tools/llms.txt
 ```
 
-Expect 200 with no `Location` header for both app entry points and public assets/text, main-domain canonicals in both versions, and 404 for the unknown page. An older deployment sent a permanent 308 from `/` with a one-hour cache lifetime; a browser that cached that response may need its HTTP cache refreshed after redeployment. Do not clear site data or IndexedDB to fix an HTTP redirect cache. Inspect the real response CSP after the proxy, exercise local save/import/PDF/PNG/clipboard flows in a browser, then reload offline. Check the OG card in a social preview debugger. Submit the canonical sitemap and inspect the URL in Google Search Console and Bing Webmaster Tools once the host is live. Deployment, DNS, search-console verification and crawler inclusion are not performed by a local build.
-
-## Discovery approach
-
-The initial HTML contains a public guide, use cases, four creation steps and ten FAQs even without JavaScript. The app remains first on the page. FAQ structured data comes from the same source as the visible answers. The JSON-LD graph includes WebApplication, WebPage/FAQPage, Organization, Person and BreadcrumbList, with no invented reviews or ratings. Creator links point to Shrinath Prabhu and Owleye Analytics; navigation links back to Lowkey Tools.
-
-`lib/site.mjs` is the public fact source. `scripts/generate-discovery.mjs` produces `llms.txt`, `llms-full.txt`, `index.md`, the sitemap, robots file, manifest and raster icons before every build. Metadata is in `app/layout.tsx`; the guide is in `components/billbook/discovery.tsx`. The original OG card is `public/og.png`, 1729 × 910; its generation prompt is recorded in `docs/OG-IMAGE.md`.
-
-Crawlable text, useful answers and consistent canonical metadata make the app eligible for discovery; they do not guarantee indexing, rich results, AI citations or model training inclusion. `llms.txt` is an additional machine-readable project reference, not a Google ranking requirement or crawler access control.
-
-References: [Google's AI search guidance](https://developers.google.com/search/docs/appearance/ai-features), [robots.txt scope](https://developers.google.com/search/docs/crawling-indexing/robots/intro), [Vercel external rewrites](https://vercel.com/docs/routing/rewrites), [Build Output API configuration](https://vercel.com/docs/build-output-api/configuration), [CSP script hashes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src), [llms.txt proposal](https://llmstxt.org/).
+Expect 200 without a `Location` header for the homepage/assets/text and 404 for the unknown page. On Pages, use `npm run preview:pages` to check native header/redirect behavior, and expect `/index.html` to redirect to `/`. Check local save/import/export, keyboard navigation and an offline reload. Submit the subdomain sitemap to search consoles after deployment. DNS, deployment and search-console submission are not performed by the local build.
