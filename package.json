@@ -15,7 +15,7 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "test:discovery": "node --test tests/discovery.test.mjs",
-    "test:build": "node --test tests/css-build.test.mjs",
+    "test:build": "node --test tests/css-build.test.mjs tests/packaging.test.mjs",
     "build:workers": "npm run build",
     "preview:workers": "wrangler dev --config deploy/cloudflare-workers/wrangler.jsonc --ip 127.0.0.1 --port 8788",
     "deploy:workers": "wrangler deploy --config deploy/cloudflare-workers/wrangler.jsonc",

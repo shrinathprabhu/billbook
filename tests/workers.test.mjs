@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import vm from 'node:vm';
+import path from 'node:path';
 import ts from 'typescript';
 import { elements, inlineScripts } from '../scripts/security.mjs';
 import { SITE_URL } from '../lib/site.mjs';
@@ -47,6 +48,13 @@ await test('Workers configuration publishes only the static package and respects
   assert.equal(config.build, undefined);
   assert.equal(config.assets.run_worker_first, undefined);
   assert.equal(config.main, undefined);
+  const pointer = JSON.parse(
+    await readFile('.wrangler/deploy/config.json', 'utf8'),
+  );
+  assert.equal(
+    path.resolve('.wrangler/deploy', pointer.configPath),
+    path.resolve('deploy/cloudflare-workers/wrangler.jsonc'),
+  );
   assert.ok(blocks.length <= 100);
   assert.ok(headerFile.split('\n').every((line) => line.length <= 2000));
   assert.equal(new Set(blocks.map((block) => block.path)).size, blocks.length);
@@ -59,7 +67,15 @@ await test('Workers configuration publishes only the static package and respects
       ),
     ),
   );
-  assert.ok(!files.includes('_redirects'));
+  for (const file of [
+    '_redirects',
+    '.assetsignore',
+    '.dev.vars',
+    'wrangler.json',
+    'wrangler.jsonc',
+    'wrangler.toml',
+  ])
+    assert.ok(!files.includes(file), file);
 });
 
 await test('Workers preserves the complete CSP using early HTML policy and HTTP frame protection', async () => {
@@ -170,7 +186,9 @@ await test('Browser service worker versions the deployed document and never cach
   assert.ok(urls.includes('/'));
   assert.ok(
     !urls.some((url) =>
-      /_headers|_redirects|_worker|sw\.js|404\.html/.test(url),
+      /_headers|_redirects|_worker|sw\.js|404\.html|wrangler\.|\.assetsignore|\.dev\.vars/.test(
+        url,
+      ),
     ),
   );
   for (const url of urls)

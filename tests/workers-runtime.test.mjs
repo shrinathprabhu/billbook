@@ -125,6 +125,9 @@ await test('Workers normalizes the HTML alias and returns actual errors for unkn
     '/source.map',
     '/_headers',
     '/_redirects',
+    '/.assetsignore',
+    '/.dev.vars',
+    '/wrangler.json',
     '/deploy/cloudflare-workers/wrangler.jsonc',
   ]) {
     const response = await request(pathname);

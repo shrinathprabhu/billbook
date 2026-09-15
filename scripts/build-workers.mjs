@@ -1,4 +1,4 @@
-import { cp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import {
@@ -7,14 +7,25 @@ import {
   assetHeaders,
 } from './security.mjs';
 import { serviceWorkerSource } from './service-worker.mjs';
+import { collectPublicAssets, isBuildArtifact } from './static-assets.mjs';
 
 const source = path.resolve('dist/client');
 const output = path.resolve('dist/workers');
 const headers = JSON.parse(
   await readFile('dist/security-headers.json', 'utf8'),
 );
+// Validate before replacing the last successful package. Framework-generated
+// deployment controls are excluded, while unexpected private files still fail.
+const { files: publicFiles, excluded } = await collectPublicAssets(source);
 await rm(output, { recursive: true, force: true });
-await cp(source, output, { recursive: true });
+await cp(source, output, {
+  recursive: true,
+  filter: (file) => !isBuildArtifact(path.relative(source, file)),
+});
+if (excluded.length)
+  console.log(
+    `Excluded build metadata from Workers assets: ${excluded.join(', ')}`,
+  );
 
 // Workers Static Assets limits each _headers line to 2,000 characters. Keep the full hashed
 // document policy before all resources, and frame-ancestors in an HTTP header
@@ -43,23 +54,6 @@ for (const file of ['index.html', '404.html']) {
     ),
   );
 }
-
-const publicFiles = [];
-for (const file of await readdir(output, { recursive: true })) {
-  if ((await stat(path.join(output, file))).isFile())
-    publicFiles.push(file.split(path.sep).join('/'));
-}
-publicFiles.sort();
-if (
-  publicFiles.some((file) =>
-    /(?:^|\/)(?:\.|_headers$|_redirects$|_worker\.js$|_routes\.json$|functions\/)|\.(?:map|env|sql|bak|log|php|pem|key)$/.test(
-      file,
-    ),
-  )
-)
-  throw new Error(
-    'Unexpected private, server or Workers Static Assets control file in the static export.',
-  );
 
 const rules = [
   [
@@ -121,6 +115,25 @@ const urls = [
 const worker = serviceWorkerSource(urls, version);
 await writeFile(path.join(output, 'sw.js'), worker);
 await writeFile(path.join(output, 'standalone-sw.js'), worker);
+// Wrangler's standard generated-config pointer makes a plain `wrangler deploy`
+// after this build select the finished static package, including after Vite's
+// Cloudflare plugin has written its own pointer to intermediate client output.
+const deployDirectory = path.resolve('.wrangler/deploy');
+const deployConfig = path.resolve('deploy/cloudflare-workers/wrangler.jsonc');
+await mkdir(deployDirectory, { recursive: true });
+await writeFile(
+  path.join(deployDirectory, 'config.json'),
+  JSON.stringify(
+    {
+      configPath: path
+        .relative(deployDirectory, deployConfig)
+        .split(path.sep)
+        .join('/'),
+    },
+    null,
+    2,
+  ) + '\n',
+);
 console.log(
   `Workers Static Assets: dist/workers, ${rules.length} header rules, ${urls.length} offline assets, version ${version}. Static assets only; no server entry point.`,
 );

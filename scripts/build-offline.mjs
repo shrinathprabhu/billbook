@@ -1,23 +1,12 @@
-import { readdir, readFile, writeFile, cp, rm } from 'node:fs/promises';
+import { readFile, writeFile, cp, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { SITE_URL } from '../lib/site.mjs';
 import { serviceWorkerSource } from './service-worker.mjs';
 import { securityHeaders } from './security.mjs';
+import { collectPublicAssets } from './static-assets.mjs';
 
 const root = path.resolve('dist/client');
-async function walk(dir) {
-  const entries = await readdir(dir, { withFileTypes: true });
-  return (
-    await Promise.all(
-      entries.map((e) =>
-        e.isDirectory()
-          ? walk(path.join(dir, e.name))
-          : [path.join(dir, e.name)],
-      ),
-    )
-  ).flat();
-}
 // The app, public files and hashed assets all live at the domain root.
 await cp(path.resolve('public'), root, { recursive: true });
 const htmlPath = path.join(root, 'index.html');
@@ -29,20 +18,22 @@ if (!html.includes(`href="${SITE_URL}"`))
 const notFound =
   '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Page not found | Billbook</title></head><body><main><h1>Page not found</h1><p>This address does not contain a Billbook page.</p><a href="/">Open the invoice and receipt generator</a></main></body></html>';
 await writeFile(path.join(root, '404.html'), notFound);
-for (const file of await walk(root)) {
-  if (
-    file.endsWith('.map') ||
-    file.includes('/.vite/') ||
-    (file.endsWith('.html') &&
-      file !== htmlPath &&
-      file !== path.join(root, '404.html'))
-  )
-    await rm(file, { force: true });
-}
+const inventory = await collectPublicAssets(root);
+const extraHtml = (file) =>
+  file.endsWith('.html') && file !== 'index.html' && file !== '404.html';
+for (const file of inventory.files.filter(extraHtml))
+  await rm(path.join(root, file), { force: true });
+if (inventory.excluded.length)
+  console.log(
+    `Excluded build metadata from offline cache: ${inventory.excluded.join(', ')}`,
+  );
 const headers = securityHeaders([html, notFound]);
-const files = (await walk(root))
-  .filter((f) => !f.endsWith('sw.js') && f !== path.join(root, '404.html'))
-  .sort();
+const files = inventory.files
+  .filter(
+    (file) =>
+      !extraHtml(file) && !file.endsWith('sw.js') && file !== '404.html',
+  )
+  .map((file) => path.join(root, file));
 const hash = createHash('sha256');
 for (const file of files) {
   hash.update(path.relative(root, file));
