@@ -20,7 +20,7 @@
     "preview:workers": "wrangler dev --config deploy/cloudflare-workers/wrangler.jsonc --ip 127.0.0.1 --port 8788",
     "deploy:workers": "wrangler deploy --config deploy/cloudflare-workers/wrangler.jsonc",
     "deploy": "npm run build && npm run deploy:workers",
-    "test:workers": "node --test tests/workers.test.mjs",
+    "test:workers": "node --test tests/workers.test.mjs tests/import-worker.test.mjs",
     "test:workers:runtime": "node --test tests/workers-runtime.test.mjs"
   },
   "dependencies": {

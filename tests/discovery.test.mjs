@@ -79,6 +79,19 @@ await test('HTML contains canonical metadata and the complete public guide witho
     ...steps.flatMap((s) => [s.name, s.text]),
   ])
     assert.ok(visible.includes(content), `Missing visible content: ${content}`);
+  for (const id of [
+    'about-billbook',
+    'document-types',
+    'frequently-asked-questions',
+  ]) {
+    let node = nodes.find((n) => attr(n, 'id') === id);
+    assert.ok(node, `Missing public guide section: ${id}`);
+    for (; node; node = node.parentNode)
+      assert.ok(
+        !node.attrs?.some((a) => a.name === 'hidden'),
+        `Public guide section ${id} must be visible without JavaScript`,
+      );
+  }
   assert.ok(visible.includes('Shrinath Prabhu'));
   assert.ok(visible.includes('Owleye Analytics'));
   assert.ok(visible.includes('lowkey.tools'));

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import {
   Upload,
   FileSpreadsheet,
@@ -24,11 +24,11 @@ import {
   validateForExport,
 } from '@/lib/billbook/model';
 import {
-  readImportFile,
   parseRows,
   downloadSample,
   type ImportRow,
 } from '@/lib/billbook/import';
+import { readImportOffThread } from '@/lib/billbook/import-client';
 import { calculate, money } from '@/lib/billbook/calculations';
 import {
   Table,
@@ -62,39 +62,48 @@ export default function BulkImport({
     [taxRate, setTaxRate] = useState(settings.defaultTax),
     [status, setStatus] = useState<BillDoc['status']>('draft');
   const fileInput = useRef<HTMLInputElement>(null);
+  const importRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => importRequest.current?.abort(), []);
   const allTemplates = [...builtinTemplates, ...templates],
     template = allTemplates.find((t) => t.id === templateId);
-  const parsed = rows.length
-    ? parseRows(
-        rows,
-        type,
-        settings,
-        template ? { ...template, taxMode, taxRate } : undefined,
-      )
-    : { documents: [], errors: [] };
-  parsed.documents = parsed.documents.map((d) => ({ ...d, status }));
-  if (status !== 'draft')
-    parsed.errors.push(
-      ...parsed.documents.flatMap((d) =>
-        validateForExport(d).map((e) => `${d.customer.name}: ${e}`),
-      ),
-    );
-  if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100)
-    parsed.errors.push('Set a default tax rate between 0 and 100.');
+  const parsed = useMemo(() => {
+    const result = rows.length
+      ? parseRows(
+          rows,
+          type,
+          settings,
+          template ? { ...template, taxMode, taxRate } : undefined,
+        )
+      : { documents: [], errors: [] };
+    result.documents = result.documents.map((d) => ({ ...d, status }));
+    if (status !== 'draft')
+      result.errors.push(
+        ...result.documents.flatMap((d) =>
+          validateForExport(d).map((e) => `${d.customer.name}: ${e}`),
+        ),
+      );
+    if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100)
+      result.errors.push('Set a default tax rate between 0 and 100.');
+    return result;
+  }, [rows, type, settings, template, taxMode, taxRate, status]);
   async function load(file: File | undefined) {
     if (!file) return;
+    importRequest.current?.abort();
+    const request = new AbortController();
+    importRequest.current = request;
     setBusy(true);
     setFileError('');
     setGenerated([]);
     try {
-      const result = await readImportFile(file);
+      const result = await readImportOffThread(file, request.signal);
       setRows(result);
       setFilename(file.name);
     } catch (e) {
+      if (request.signal.aborted) return;
       setFileError((e as Error).message);
       setRows([]);
     } finally {
-      setBusy(false);
+      if (!request.signal.aborted) setBusy(false);
     }
   }
   async function generate() {

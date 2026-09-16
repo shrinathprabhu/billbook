@@ -1,8 +1,9 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
 // Inline SVG needs an accessible image role and must remain vector for exports.
 import QRCode from 'qrcode';
+import { memo } from 'react';
 
-export default function UpiQr({ value }: { value: string }) {
+const UpiQr = memo(function UpiQr({ value }: { value: string }) {
   const { modules } = QRCode.create(value, { errorCorrectionLevel: 'M' });
   const quietZone = 4;
   const size = modules.size + quietZone * 2;
@@ -28,4 +29,5 @@ export default function UpiQr({ value }: { value: string }) {
       <path d={pixels} fill="#000000" />
     </svg>
   );
-}
+});
+export default UpiQr;

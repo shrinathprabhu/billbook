@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useForm, type PathValue } from 'react-hook-form';
+import { useState, useEffect, useDeferredValue } from 'react';
+import { useForm, useWatch, type PathValue } from 'react-hook-form';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -81,15 +81,16 @@ export default function Editor({
   const form = useForm<BillDoc>({
     defaultValues: initial,
   });
-  const doc = form.watch();
+  const doc = useWatch({ control: form.control }) as BillDoc;
+  const previewDoc = useDeferredValue(doc);
   const [busy, setBusy] = useState(false),
     [tab, setTab] = useState('details'),
     [copy, setCopy] = useState('Original'),
-    [saved, setSaved] = useState(initial.number ? JSON.stringify(initial) : ''),
+    [saved, setSaved] = useState(!!initial.number),
     [errors, setErrors] = useState<string[]>([]),
     [leave, setLeave] = useState(false),
     [mobilePreview, setMobilePreview] = useState(false);
-  const dirty = JSON.stringify(doc) !== saved;
+  const dirty = !saved || form.formState.isDirty;
   useEffect(() => onDraftChange(doc, dirty), [doc, dirty, onDraftChange]);
   const set = <K extends keyof BillDoc>(key: K, value: BillDoc[K]) =>
     form.setValue(key, value as PathValue<BillDoc, K>, { shouldDirty: true });
@@ -120,7 +121,7 @@ export default function Editor({
     }
     const result = await onSave(doc);
     form.reset(result);
-    setSaved(JSON.stringify(result));
+    setSaved(true);
     setErrors([]);
     return result;
   }
@@ -689,7 +690,7 @@ export default function Editor({
             <span>A4</span>
           </div>
           <div className="paper-scroll">
-            <DocumentPreview doc={doc} copy={copy} />
+            <DocumentPreview doc={previewDoc} copy={copy} />
           </div>
           <div className="preview-footnote">
             Your details. Your design. Ready to share.

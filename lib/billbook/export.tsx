@@ -7,6 +7,7 @@ import JSZip from 'jszip';
 import DocumentPreview from '@/components/billbook/document-preview';
 import { type BillDoc, typeNames, validateForExport } from './model';
 import { documentText } from './calculations';
+import { yieldToBrowser } from './scheduling';
 const filename = (value: string) =>
   value.replace(/[^a-zA-Z0-9_.-]/g, '_').replace(/^\.+/, '') || 'document';
 export function download(data: Blob | string, name: string) {
@@ -22,6 +23,7 @@ export function download(data: Blob | string, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 async function capture(doc: BillDoc, copy: string) {
+  await yieldToBrowser();
   const host = document.createElement('div');
   host.className = 'export-host';
   Object.assign(host.style, {
@@ -72,6 +74,7 @@ export async function makePDF(doc: BillDoc, copies = ['Original']) {
     let offset = 0,
       page = 0;
     while (offset < canvas.height) {
+      await yieldToBrowser();
       if (!first) pdf.addPage();
       first = false;
       page++;
@@ -177,6 +180,7 @@ export async function exportBulk(
     zip.file(`${name}.pdf`, await makePDF(doc));
     zip.file(`${name}.txt`, documentText(doc));
     onProgress(Math.round(((i + 1) / docs.length) * 100));
+    await yieldToBrowser();
   }
   download(await zip.generateAsync({ type: 'blob' }), 'billbook-documents.zip');
 }

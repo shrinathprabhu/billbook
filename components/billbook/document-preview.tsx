@@ -1,5 +1,6 @@
 /* oxlint-disable next/no-img-element */
 // Uploaded data URLs render locally without an image optimization service.
+import { memo } from 'react';
 import { type BillDoc, typeNames } from '@/lib/billbook/model';
 import {
   calculate,
@@ -9,7 +10,7 @@ import {
 } from '@/lib/billbook/calculations';
 import { upiPaymentUri } from '@/lib/billbook/payment';
 import UpiQr from './upi-qr';
-export default function DocumentPreview({
+const DocumentPreview = memo(function DocumentPreview({
   doc,
   copy = 'Original',
 }: {
@@ -282,4 +283,5 @@ export default function DocumentPreview({
       <footer className="paper-footer pdf-block">{d.footer}</footer>
     </article>
   );
-}
+});
+export default DocumentPreview;

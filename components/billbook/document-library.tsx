@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useDeferredValue } from 'react';
 import {
   ArrowUpRight,
   ArrowRight,
@@ -57,7 +57,7 @@ import {
   documentTypes,
 } from '@/lib/billbook/model';
 import { calculate, money, formatDate } from '@/lib/billbook/calculations';
-import { typeMeta } from './templates';
+import { typeMeta } from './document-types';
 import { Choice } from './fields';
 import { toast } from 'sonner';
 export default function DocumentLibrary({
@@ -93,6 +93,7 @@ export default function DocumentLibrary({
     [exporting, setExporting] = useState(false),
     [progress, setProgress] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
+  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -116,21 +117,32 @@ export default function DocumentLibrary({
           (status === 'all' || d.status === status) &&
           `${d.number} ${d.customer.name} ${d.seller.name} ${typeNames[d.type]} ${d.unit}`
             .toLowerCase()
-            .includes(search.toLowerCase()),
+            .includes(deferredSearch),
       ),
-    [documents, tab, status, search],
+    [documents, tab, status, deferredSearch],
   );
-  const current = documents.filter(
-    (d) =>
-      d.currency === settings.currency &&
-      !(d.type === 'voucher' && d.voucherDirection === 'paid'),
-  );
-  const issued = current.filter((d) => d.status !== 'draft'),
-    paid = current.filter((d) => d.status === 'paid'),
-    unpaid = current.filter((d) => d.status === 'unpaid');
-  const sum = (list: BillDoc[]) =>
-    list.reduce((n, d) => n + calculate(d).total, 0);
-  const drafts = documents.filter((d) => d.status === 'draft');
+  const stats = useMemo(() => {
+    const current = documents.filter(
+      (d) =>
+        d.currency === settings.currency &&
+        !(d.type === 'voucher' && d.voucherDirection === 'paid'),
+    );
+    const issued = current.filter((d) => d.status !== 'draft'),
+      paid = current.filter((d) => d.status === 'paid'),
+      unpaid = current.filter((d) => d.status === 'unpaid');
+    const sum = (list: BillDoc[]) =>
+      list.reduce((n, d) => n + calculate(d).total, 0);
+    const drafts = documents.filter((d) => d.status === 'draft');
+    return {
+      issued: issued.length,
+      paid: paid.length,
+      unpaid: unpaid.length,
+      drafts: drafts.length,
+      billed: sum(issued),
+      collected: sum(paid),
+      outstanding: sum(unpaid),
+    };
+  }, [documents, settings.currency]);
   async function downloadDoc(doc: BillDoc) {
     setExporting(true);
     try {
@@ -340,28 +352,28 @@ export default function DocumentLibrary({
         {[
           {
             label: 'Total billed',
-            value: money(sum(issued), settings.currency),
-            note: `Across ${issued.length} issued ${settings.currency} documents`,
+            value: money(stats.billed, settings.currency),
+            note: `Across ${stats.issued} issued ${settings.currency} documents`,
             icon: Wallet,
             color: 'green',
           },
           {
             label: 'Collected',
-            value: money(sum(paid), settings.currency),
-            note: `${paid.length} paid documents`,
+            value: money(stats.collected, settings.currency),
+            note: `${stats.paid} paid documents`,
             icon: CircleCheck,
             color: 'green',
           },
           {
             label: 'Outstanding',
-            value: money(sum(unpaid), settings.currency),
-            note: `${unpaid.length} awaiting payment`,
+            value: money(stats.outstanding, settings.currency),
+            note: `${stats.unpaid} awaiting payment`,
             icon: Clock3,
             color: 'orange',
           },
           {
             label: 'Drafts',
-            value: String(drafts.length),
+            value: String(stats.drafts),
             note: 'Ready when you are',
             icon: FileText,
             color: 'gray',
@@ -442,24 +454,22 @@ export default function DocumentLibrary({
             </TabsList>
           </Tabs>
           <div className="table-controls">
-            {documents.length > 0 && (
-              <div className="status-filter">
-                <Choice
-                  label="Filter status"
-                  value={status}
-                  onChange={(v) => {
-                    setStatus(v);
-                    setSelection({});
-                  }}
-                  options={[
-                    { value: 'all', label: 'All status' },
-                    { value: 'draft', label: 'Drafts' },
-                    { value: 'paid', label: 'Paid' },
-                    { value: 'unpaid', label: 'Unpaid / issued' },
-                  ]}
-                />
-              </div>
-            )}
+            <div className="status-filter">
+              <Choice
+                label="Filter status"
+                value={status}
+                onChange={(v) => {
+                  setStatus(v);
+                  setSelection({});
+                }}
+                options={[
+                  { value: 'all', label: 'All status' },
+                  { value: 'draft', label: 'Drafts' },
+                  { value: 'paid', label: 'Paid' },
+                  { value: 'unpaid', label: 'Unpaid / issued' },
+                ]}
+              />
+            </div>
             <div className="table-search">
               <Search size={16} />
               <input
@@ -500,82 +510,91 @@ export default function DocumentLibrary({
           </div>
         )}
         <div className="document-table">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((group) => (
-                <TableRow key={group.id}>
-                  {group.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className={
-                        header.column.id === 'select' ? 'checkbox-cell' : ''
-                      }
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() ? 'selected' : undefined}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
+          {/* Keyboard users need a focus target to scroll this bounded table. */}
+          {/* oxlint-disable jsx-a11y/no-noninteractive-tabindex */}
+          <section
+            className="document-scroll"
+            aria-label="Saved documents"
+            tabIndex={0}
+            aria-busy={loading}
+          >
+            <Table>
+              <TableHeader
+                style={{ visibility: loading ? 'hidden' : undefined }}
+              >
+                {table.getHeaderGroups().map((group) => (
+                  <TableRow key={group.id}>
+                    {group.headers.map((header) => (
+                      <TableHead
+                        key={header.id}
                         className={
-                          cell.column.id === 'select'
-                            ? 'checkbox-cell'
-                            : undefined
+                          header.column.id === 'select' ? 'checkbox-cell' : ''
                         }
                       >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                      </TableHead>
                     ))}
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={columns.length}>
-                    <div className="empty-documents">
-                      <span className="empty-icon">
-                        <FileText size={29} />
-                        <span>
-                          <Plus size={12} />
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() ? 'selected' : undefined}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell
+                          key={cell.id}
+                          className={
+                            cell.column.id === 'select'
+                              ? 'checkbox-cell'
+                              : undefined
+                          }
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length}>
+                      <div className="empty-documents">
+                        <span className="empty-icon">
+                          <FileText size={29} />
+                          <span>
+                            <Plus size={12} />
+                          </span>
                         </span>
-                      </span>
-                      <h3>
-                        {loading
-                          ? 'Opening your workspace…'
-                          : documents.length
-                            ? 'No documents found'
-                            : 'Your first document starts here'}
-                      </h3>
-                      <p>
+                        <h3>
+                          {loading
+                            ? 'Opening your workspace…'
+                            : documents.length
+                              ? 'No documents found'
+                              : 'Your first document starts here'}
+                        </h3>
+                        <p>
+                          {documents.length ? (
+                            'Try a different search or filter.'
+                          ) : (
+                            <>
+                              Create a professional bill in minutes.
+                              <br />
+                              We’ll keep it safe, right here on your device.
+                            </>
+                          )}
+                        </p>
                         {documents.length ? (
-                          'Try a different search or filter.'
-                        ) : (
-                          <>
-                            Create a professional bill in minutes.
-                            <br />
-                            We’ll keep it safe, right here on your device.
-                          </>
-                        )}
-                      </p>
-                      {!loading &&
-                        (documents.length ? (
                           <button
                             className="button secondary"
                             onClick={() => {
@@ -589,18 +608,21 @@ export default function DocumentLibrary({
                         ) : (
                           <button
                             className="button secondary"
+                            disabled={loading}
                             onClick={() => onCreate()}
                           >
                             <Plus size={16} />
                             Create a document
                           </button>
-                        ))}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </section>
+          {/* oxlint-enable jsx-a11y/no-noninteractive-tabindex */}
           <div className="table-footer">
             <span>
               {filtered.length}{' '}

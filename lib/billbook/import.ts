@@ -189,6 +189,9 @@ export async function readImportFile(file: File): Promise<ImportRow[]> {
     const workbook = XLSX.read(await file.arrayBuffer(), {
       type: 'array',
       cellDates: true,
+      // Read only the supported worksheet and enough rows to detect overflow.
+      sheets: 0,
+      sheetRows: 502,
     });
     if (!workbook.SheetNames.length)
       throw new Error('The workbook has no sheets.');

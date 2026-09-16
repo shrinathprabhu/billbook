@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import './fonts.css';
 import './globals.css';
+import interRegular from '@fontsource/inter/files/inter-latin-400-normal.woff2?url';
+import interMedium from '@fontsource/inter/files/inter-latin-500-normal.woff2?url';
+import interSemibold from '@fontsource/inter/files/inter-latin-600-normal.woff2?url';
 import { SITE_URL, TITLE, DESCRIPTION, OG_IMAGE } from '@/lib/site.mjs';
 export const viewport: Viewport = { themeColor: '#227852' };
 export const metadata: Metadata = {
@@ -53,6 +56,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {[interRegular, interMedium, interSemibold].map((href) => (
+          <link
+            key={href}
+            rel="preload"
+            href={href}
+            as="font"
+            type="font/woff2"
+            crossOrigin="anonymous"
+          />
+        ))}
         <link
           rel="describedby"
           href={`${SITE_URL}llms.txt`}

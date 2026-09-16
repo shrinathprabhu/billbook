@@ -1,5 +1,13 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  startTransition,
+  lazy,
+  Suspense,
+} from 'react';
 import { z } from 'zod';
 import SiteFooter from '@/components/billbook/site-footer';
 import InstallButton from '@/components/billbook/install-button';
@@ -42,10 +50,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import DocumentLibrary from '@/components/billbook/document-library';
-import Templates, { typeMeta } from '@/components/billbook/templates';
-import Editor from '@/components/billbook/editor';
-import BulkImport from '@/components/billbook/bulk-import';
-import SettingsView from '@/components/billbook/settings';
+import { typeMeta } from '@/components/billbook/document-types';
 import { readUpload } from '@/components/billbook/fields';
 import {
   loadWorkspace,
@@ -70,6 +75,11 @@ import {
   validateForExport,
 } from '@/lib/billbook/model';
 import { calculate } from '@/lib/billbook/calculations';
+
+const Templates = lazy(() => import('./templates'));
+const Editor = lazy(() => import('./editor'));
+const BulkImport = lazy(() => import('./bulk-import'));
+const SettingsView = lazy(() => import('./settings'));
 
 type Page = 'documents' | 'templates' | 'bulk' | 'settings';
 const pageNames: Record<Page, string> = {
@@ -110,7 +120,7 @@ export default function Workspace({
     [templates, setTemplates] = useState<Template[]>([]),
     [settings, setSettingsState] = useState<Settings>(defaultSettings),
     [customFonts, setCustomFonts] = useState<CustomFont[]>([]),
-    [editing, setEditing] = useState<BillDoc | null>(null),
+    [editing, setEditingState] = useState<BillDoc | null>(null),
     [create, setCreate] = useState(false),
     [help, setHelp] = useState(false),
     [remove, setRemove] = useState<BillDoc | null>(null),
@@ -134,7 +144,8 @@ export default function Workspace({
       setSettingsState(data.settings);
       setCustomFonts(data.fonts);
       setStorageError('');
-      await Promise.allSettled(
+      // Uploaded document fonts must not delay opening the local workspace.
+      void Promise.allSettled(
         data.fonts.map(async (f) => {
           const font = await new FontFace(f.name, `url(${f.data})`).load();
           document.fonts.add(font);
@@ -167,10 +178,15 @@ export default function Workspace({
         );
     }
   }, []);
+  const setEditing = useCallback((doc: BillDoc | null) => {
+    startTransition(() => setEditingState(doc));
+  }, []);
   function finishNavigate(p: Page) {
-    setPage(p);
-    setEditing(null);
-    setPendingPage(null);
+    startTransition(() => {
+      setPage(p);
+      setEditing(null);
+      setPendingPage(null);
+    });
     editorDirty.current = false;
   }
   function navigate(p: Page) {
@@ -505,89 +521,99 @@ export default function Workspace({
             </button>
           </div>
         )}
-        {editing ? (
-          <main id="main-content" tabIndex={-1}>
-            <Editor
-              key={editing.id}
-              initial={editing}
-              settings={settings}
-              customFonts={customFonts}
-              onSave={saveDoc}
-              onBack={() => setEditing(null)}
-              onFontUpload={fontUpload}
-              onSaveTemplate={templateSave}
-              onDraftChange={draftChanged}
-            />
-          </main>
-        ) : (
-          <main className="main-content" id="main-content" tabIndex={-1}>
-            {page === 'documents' ? (
-              <DocumentLibrary
-                documents={documents}
-                settings={settings}
-                onCreate={createDoc}
-                onOpen={setEditing}
-                onBulk={() => navigate('bulk')}
-                onTemplates={() => navigate('templates')}
-                onDuplicate={(d) => void duplicate(d)}
-                onDelete={setRemove}
-                onPaid={(d) => void markPaid(d)}
-                loading={loading}
-              />
-            ) : page === 'templates' ? (
-              <Templates
-                templates={templates}
+        <main
+          className={editing ? undefined : 'main-content'}
+          id="main-content"
+          tabIndex={-1}
+        >
+          <Suspense fallback={<div aria-busy="true">Opening workspace…</div>}>
+            {editing ? (
+              <Editor
+                key={editing.id}
+                initial={editing}
                 settings={settings}
                 customFonts={customFonts}
-                onCreate={createDoc}
-                onSave={templateSave}
-                onDelete={async (id) => {
-                  try {
-                    await deleteTemplate(id);
-                    setTemplates((v) => v.filter((t) => t.id !== id));
-                    toast.success('Template deleted');
-                  } catch (e) {
-                    toast.error((e as Error).message);
-                  }
-                }}
+                onSave={saveDoc}
+                onBack={() => setEditing(null)}
                 onFontUpload={fontUpload}
-              />
-            ) : page === 'bulk' ? (
-              <BulkImport
-                settings={settings}
-                templates={templates}
-                onGenerate={saveDocs}
-                onOpen={setEditing}
+                onSaveTemplate={templateSave}
+                onDraftChange={draftChanged}
               />
             ) : (
-              <SettingsView
-                key={JSON.stringify(settings)}
-                settings={settings}
-                customFonts={customFonts}
-                onSave={async (s) => {
-                  await saveSettings(s);
-                  setSettingsState(s);
-                }}
-                onRefresh={refresh}
-                onFontUpload={fontUpload}
-                documentCount={documents.length}
-              />
+              <div className="workspace-screen" key={page}>
+                {page === 'documents' ? (
+                  <DocumentLibrary
+                    documents={documents}
+                    settings={settings}
+                    onCreate={createDoc}
+                    onOpen={setEditing}
+                    onBulk={() => navigate('bulk')}
+                    onTemplates={() => navigate('templates')}
+                    onDuplicate={(d) => void duplicate(d)}
+                    onDelete={setRemove}
+                    onPaid={(d) => void markPaid(d)}
+                    loading={loading}
+                  />
+                ) : page === 'templates' ? (
+                  <Templates
+                    templates={templates}
+                    settings={settings}
+                    customFonts={customFonts}
+                    onCreate={createDoc}
+                    onSave={templateSave}
+                    onDelete={async (id) => {
+                      try {
+                        await deleteTemplate(id);
+                        setTemplates((v) => v.filter((t) => t.id !== id));
+                        toast.success('Template deleted');
+                      } catch (e) {
+                        toast.error((e as Error).message);
+                      }
+                    }}
+                    onFontUpload={fontUpload}
+                  />
+                ) : page === 'bulk' ? (
+                  <BulkImport
+                    settings={settings}
+                    templates={templates}
+                    onGenerate={saveDocs}
+                    onOpen={setEditing}
+                  />
+                ) : (
+                  <SettingsView
+                    key={JSON.stringify(settings)}
+                    settings={settings}
+                    customFonts={customFonts}
+                    onSave={async (s) => {
+                      await saveSettings(s);
+                      setSettingsState(s);
+                    }}
+                    onRefresh={refresh}
+                    onFontUpload={fontUpload}
+                    documentCount={documents.length}
+                  />
+                )}
+              </div>
             )}
-            {page === 'documents' && discovery}
-            <footer className="page-footer">
-              <span>
-                <span className="tiny-brand">
-                  <Receipt size={14} />
+          </Suspense>
+          {!editing && (
+            <>
+              {page === 'documents' && discovery}
+              <footer className="page-footer">
+                <span>
+                  <span className="tiny-brand">
+                    <Receipt size={14} />
+                  </span>
+                  Less paperwork. More possibilities.
                 </span>
-                Less paperwork. More possibilities.
-              </span>
-              <span>
-                Made for your everyday business
-                <span className="footer-dot">·</span>100% local
-              </span>
-            </footer>
-          </main>
-        )}
+                <span>
+                  Made for your everyday business
+                  <span className="footer-dot">·</span>100% local
+                </span>
+              </footer>
+            </>
+          )}
+        </main>
         <SiteFooter showRelated={page === 'documents' && !editing} />
       </div>
       <Dialog open={create} onOpenChange={setCreate}>
